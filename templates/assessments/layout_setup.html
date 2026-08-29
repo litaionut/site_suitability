@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Setup Assessment - {{ layout.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=layout.site.project.uuid %}">{{ layout.site.project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sites:detail' pk=layout.site.pk %}">{{ layout.site.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'turbines:layout_detail' pk=layout.pk %}">{{ layout.name }}</a></li>
+        <li class="breadcrumb-item active">Setup Assessment</li>
+    </ol>
+</nav>
+
+<h1>Setup Assessment for {{ layout.name }}</h1>
+
+<p class="text-muted">This will create an assessment for all turbines with role "new_scored" in this layout.</p>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="hub_climate_id" class="form-label">Select Hub Climate</label>
+        <select class="form-control" id="hub_climate_id" name="hub_climate_id" required>
+            <option value="">-- Select Hub Climate --</option>
+            {% for climate in hub_climates %}
+                <option value="{{ climate.pk }}">{{ climate.name }} ({{ climate.ti_bins.count }} bins)</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="edition" class="form-label">IEC Edition</label>
+        <select class="form-control" id="edition" name="edition">
+            <option value="ed4" selected>Edition 4</option>
+            <option value="ed3">Edition 3</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Create and Run Assessment</button>
+    <a href="{% url 'turbines:layout_detail' pk=layout.pk %}" class="btn btn-secondary">Cancel</a>
+</form>
+
+{% if not hub_climates %}
+    <div class="alert alert-warning mt-3">
+        <strong>No hub climates available.</strong> Please <a href="{% url 'climate:create' site_pk=layout.site.pk %}">create a hub climate</a> first.
+    </div>
+{% endif %}
+{% endblock %}

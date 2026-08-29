@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Turbines - {{ layout.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=layout.site.project.uuid %}">{{ layout.site.project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sites:detail' pk=layout.site.pk %}">{{ layout.site.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'turbines:layout_detail' pk=layout.pk %}">{{ layout.name }}</a></li>
+        <li class="breadcrumb-item active">Import CSV</li>
+    </ol>
+</nav>
+
+<h1>Import Turbines from CSV</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">CSV Format</h5>
+        <p>The CSV file must be UTF-8 encoded with a header row containing the following columns:</p>
+        <ul>
+            <li><strong>local_id</strong> (required): Unique identifier within this layout</li>
+            <li><strong>role</strong> (optional): Either "new_scored" or "existing_wake_source" (default: new_scored)</li>
+            <li><strong>x_m</strong> (required): Easting in site CRS (meters)</li>
+            <li><strong>y_m</strong> (required): Northing in site CRS (meters)</li>
+            <li><strong>z_base_m</strong> (required): Base elevation (meters)</li>
+            <li><strong>hub_height_m</strong> (required): Hub height above base (meters)</li>
+            <li><strong>rotor_d_m</strong> (required): Rotor diameter (meters)</li>
+            <li><strong>model_name</strong> (optional): WTG model name (will create stub if missing)</li>
+        </ul>
+        <p class="text-warning"><strong>Note:</strong> Import is all-or-nothing. If any row has errors, no turbines will be imported.</p>
+        <p class="text-warning"><strong>Note:</strong> Duplicate local_id values will be rejected.</p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="csv_file" class="form-label">Select CSV File</label>
+        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Import</button>
+    <a href="{% url 'turbines:layout_detail' pk=layout.pk %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

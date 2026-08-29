@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ hub_climate.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=hub_climate.site.project.uuid %}">{{ hub_climate.site.project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sites:detail' pk=hub_climate.site.pk %}">{{ hub_climate.site.name }}</a></li>
+        <li class="breadcrumb-item active">{{ hub_climate.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ hub_climate.name }}</h1>
+    <a href="{% url 'climate:edit' pk=hub_climate.pk %}" class="btn btn-secondary">Edit</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Climate Parameters</h5>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Period:</strong> {{ hub_climate.period_hours }} hours</p>
+                <p><strong>Bin Width:</strong> {{ hub_climate.bin_width_mps }} m/s</p>
+                <p><strong>Air Density (ρ):</strong> {{ hub_climate.rho_kgm3 }} kg/m³</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>V50:</strong> {{ hub_climate.v50_mps }} m/s</p>
+                <p><strong>Shear (α):</strong> {{ hub_climate.shear_alpha|default:"N/A" }}</p>
+                <p><strong>Inflow Angle:</strong> {{ hub_climate.inflow_angle_deg|default:"N/A" }}°</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title">TI Bins</h5>
+            <a href="{% url 'climate:ti_bin_import' hub_climate_pk=hub_climate.pk %}" class="btn btn-primary">Import CSV</a>
+        </div>
+
+        {% if ti_bins %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>V Center (m/s)</th>
+                            <th>Hours</th>
+                            <th>Mean σ (m/s)</th>
+                            <th>Std σ (m/s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bin in ti_bins %}
+                            <tr>
+                                <td>{{ bin.v_center_mps|floatformat:1 }}</td>
+                                <td>{{ bin.hours|floatformat:2 }}</td>
+                                <td>{{ bin.mean_sigma_mps|floatformat:3 }}</td>
+                                <td>{{ bin.std_sigma_mps|default:"-"|floatformat:3 }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No TI bins yet. Import from CSV to add data.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

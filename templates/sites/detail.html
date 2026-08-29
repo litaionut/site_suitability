@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ site.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=site.project.uuid %}">{{ site.project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ site.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ site.name }}</h1>
+    <div>
+        <a href="{% url 'sites:compare' pk=site.pk %}" class="btn btn-info">Compare Layouts</a>
+        <a href="{% url 'sites:edit' pk=site.pk %}" class="btn btn-secondary">Edit Site</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted">Site Information</h6>
+        <p><strong>Location:</strong> {{ site.center_lat_deg|floatformat:4 }}°, {{ site.center_lon_deg|floatformat:4 }}°</p>
+        <p><strong>CRS:</strong> EPSG:{{ site.crs_epsg }} (UTM Zone {{ site.utm_zone }}{{ site.utm_north|yesno:"N,S" }})</p>
+        <p><strong>Default Complexity:</strong> {{ site.get_default_complexity_display }}</p>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Layouts</h2>
+    <a href="{% url 'turbines:layout_create' site_pk=site.pk %}" class="btn btn-primary">New Layout</a>
+</div>
+
+{% if layouts %}
+    <div class="list-group mb-4">
+        {% for layout in layouts %}
+            <a href="{% url 'turbines:layout_detail' pk=layout.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ layout.name }}</h5>
+                    <span class="badge bg-primary">{{ layout.turbines.count }} turbine{{ layout.turbines.count|pluralize }}</span>
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">No layouts yet. Create one to add turbines.</p>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Hub Climates</h2>
+    <a href="{% url 'climate:create' site_pk=site.pk %}" class="btn btn-primary">Add Hub Climate</a>
+</div>
+
+{% if hub_climates %}
+    <div class="list-group">
+        {% for climate in hub_climates %}
+            <a href="{% url 'climate:detail' pk=climate.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ climate.name }}</h5>
+                    <span class="badge bg-success">{{ climate.ti_bins.count }} TI bin{{ climate.ti_bins.count|pluralize }}</span>
+                </div>
+                <p class="mb-1"><small>V50: {{ climate.v50_mps }} m/s | ρ: {{ climate.rho_kgm3 }} kg/m³</small></p>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">No hub climates yet. Add one to run assessments.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ layout.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=layout.site.project.uuid %}">{{ layout.site.project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sites:detail' pk=layout.site.pk %}">{{ layout.site.name }}</a></li>
+        <li class="breadcrumb-item active">{{ layout.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ layout.name }}</h1>
+    <div>
+        <a href="{% url 'assessments:layout_setup' layout_pk=layout.pk %}" class="btn btn-success">Run Assessment</a>
+        <a href="{% url 'turbines:layout_edit' pk=layout.pk %}" class="btn btn-secondary">Edit Layout</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Turbines</h5>
+        <div class="btn-group mb-3" role="group">
+            <a href="{% url 'turbines:turbine_create' layout_pk=layout.pk %}" class="btn btn-primary">Add Turbine</a>
+            <a href="{% url 'turbines:turbine_import' layout_pk=layout.pk %}" class="btn btn-info">Import CSV</a>
+        </div>
+
+        {% if turbines %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Local ID</th>
+                            <th>Role</th>
+                            <th>X (m)</th>
+                            <th>Y (m)</th>
+                            <th>Z Base (m)</th>
+                            <th>Hub Height (m)</th>
+                            <th>Rotor D (m)</th>
+                            <th>Model</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for turbine in turbines %}
+                            <tr>
+                                <td>{{ turbine.local_id }}</td>
+                                <td><span class="badge bg-{% if turbine.role == 'new_scored' %}primary{% else %}secondary{% endif %}">{{ turbine.get_role_display }}</span></td>
+                                <td>{{ turbine.x_m|floatformat:1 }}</td>
+                                <td>{{ turbine.y_m|floatformat:1 }}</td>
+                                <td>{{ turbine.z_base_m|floatformat:1 }}</td>
+                                <td>{{ turbine.hub_height_m|floatformat:1 }}</td>
+                                <td>{{ turbine.rotor_d_m|floatformat:1 }}</td>
+                                <td>{{ turbine.model.name|default:"-" }}</td>
+                                <td>
+                                    <a href="{% url 'turbines:turbine_edit' pk=turbine.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                    <form method="post" action="{% url 'turbines:turbine_delete' pk=turbine.pk %}" style="display:inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete turbine {{ turbine.local_id }}?')">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No turbines yet. Add turbines manually or import from CSV.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

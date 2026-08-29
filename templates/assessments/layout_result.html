@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Assessment Results - {{ layout.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=layout.site.project.uuid %}">{{ layout.site.project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sites:detail' pk=layout.site.pk %}">{{ layout.site.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'turbines:layout_detail' pk=layout.pk %}">{{ layout.name }}</a></li>
+        <li class="breadcrumb-item active">Assessment Results</li>
+    </ol>
+</nav>
+
+<h1>Assessment Results for {{ layout.name }}</h1>
+
+<div class="alert alert-info">
+    <strong>Disclaimer:</strong> This is a screening tool for IEC 61400-1 inspired site suitability assessment. This is NOT a certified IEC assessment.
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Assessment: {{ assessment.name }}</h5>
+        <p><strong>Edition:</strong> {{ assessment.get_edition_display }}</p>
+        <p><strong>Overall Status:</strong> <span class="status-{{ assessment.overall_status }}">{{ assessment.overall_status }}</span></p>
+        <p><strong>Created:</strong> {{ assessment.created_at|date:"Y-m-d H:i" }}</p>
+    </div>
+</div>
+
+<h2>Turbine Results</h2>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Turbine</th>
+            <th>Extreme Wind</th>
+            <th>Wind Distribution</th>
+            <th>Turbulence NTM</th>
+            <th>Shear</th>
+            <th>Inflow</th>
+            <th>Air Density</th>
+            <th>Complexity</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for at in assessment_turbines %}
+            <tr>
+                <td><strong>{{ at.turbine.local_id }}</strong></td>
+                {% for check in at.check_results.all %}
+                    <td><span class="badge badge-{{ check.status }}">{{ check.status }}</span></td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Detailed Results</h3>
+
+{% for at in assessment_turbines %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5>{{ at.turbine.local_id }} - {{ at.turbine.model.name|default:"No model" }}</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Vref:</strong> {{ at.resolved_vref_mps }} m/s | <strong>Iref:</strong> {{ at.resolved_iref }} | <strong>Vave:</strong> {{ at.resolved_vave_mps }} m/s | <strong>CCT:</strong> {{ at.cct }}</p>
+            
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Status</th>
+                        <th>Value</th>
+                        <th>Limit</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for check in at.check_results.all %}
+                        <tr>
+                            <td>{{ check.get_check_id_display }}</td>
+                            <td><span class="status-{{ check.status }}">{{ check.status }}</span></td>
+                            <td>{{ check.value|default:"-"|floatformat:3 }} {{ check.units }}</td>
+                            <td>{{ check.limit|default:"-"|floatformat:3 }} {{ check.units }}</td>
+                            <td>
+                                {% if check.flags %}
+                                    <span class="badge bg-warning text-dark">{{ check.flags|join:", " }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endfor %}
+
+<a href="{% url 'turbines:layout_detail' pk=layout.pk %}" class="btn btn-secondary">Back to Layout</a>
+{% endblock %}
