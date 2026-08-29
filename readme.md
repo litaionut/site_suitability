@@ -24,7 +24,7 @@ A Django-based web application for assessing wind turbine site suitability based
   7. Complexity (CCT factor)
 - **Test coverage** with pytest and golden test fixtures
 - **CI/CD** with GitHub Actions running tests on every push/PR
-- **HTML reports** with disclaimer
+- **HTML reports** with disclaimer (Slice 0 reports are HTML-only; PDF is later)
 
 ## What This Tool Does NOT Include
 
