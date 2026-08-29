@@ -1,0 +1,141 @@
+{% extends 'assessments/base.html' %}
+
+{% block title %}Report: {{ assessment.name }} - Wind Site Suitability{% endblock %}
+
+{% block content %}
+<h1>Site Suitability Assessment Report</h1>
+<h2>{{ assessment.name }}</h2>
+
+<div class="disclaimer">
+    <strong>DISCLAIMER:</strong> Screening against a user-editable class envelope, not a certified IEC 61400-1 assessment.
+</div>
+
+<h3>Assessment Information</h3>
+<table>
+    <tr>
+        <th>Project</th>
+        <td>{{ assessment.project.name }}</td>
+    </tr>
+    <tr>
+        <th>Site</th>
+        <td>{{ assessment.site.name }}</td>
+    </tr>
+    <tr>
+        <th>Edition</th>
+        <td>{{ assessment.get_edition_display }}</td>
+    </tr>
+    <tr>
+        <th>Overall Status</th>
+        <td>
+            {% if assessment.overall_status %}
+                <span class="status-{{ assessment.overall_status|lower }}">{{ assessment.overall_status }}</span>
+            {% else %}
+                <em>Assessment not run</em>
+            {% endif %}
+        </td>
+    </tr>
+    <tr>
+        <th>Assessment Date</th>
+        <td>{{ assessment.updated_at|date:"Y-m-d H:i" }}</td>
+    </tr>
+</table>
+
+{% for at in assessment_turbines %}
+<hr style="margin: 40px 0;">
+<h3>Turbine: {{ at.turbine.local_id }}</h3>
+
+<h4>Parameters</h4>
+<table>
+    <tr>
+        <th>Hub Climate</th>
+        <td>{{ at.hub_climate.name }}</td>
+    </tr>
+    <tr>
+        <th>Vref (m/s)</th>
+        <td>{{ at.resolved_vref_mps }}</td>
+    </tr>
+    <tr>
+        <th>Iref</th>
+        <td>{{ at.resolved_iref }}</td>
+    </tr>
+    <tr>
+        <th>Vave Design (m/s)</th>
+        <td>{{ at.resolved_vave_mps }}</td>
+    </tr>
+    <tr>
+        <th>CCT (Complexity Correction)</th>
+        <td>{{ at.cct }}</td>
+    </tr>
+    <tr>
+        <th>Air Density (kg/m³)</th>
+        <td>{{ at.hub_climate.rho_kgm3 }}</td>
+    </tr>
+    <tr>
+        <th>V50 (m/s)</th>
+        <td>{{ at.hub_climate.v50_mps }}</td>
+    </tr>
+</table>
+
+<h4>Check Results</h4>
+<table>
+    <thead>
+        <tr>
+            <th>Check</th>
+            <th>Status</th>
+            <th>Value</th>
+            <th>Limit</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for check in at.check_results.all %}
+        <tr>
+            <td><strong>{{ check.get_check_id_display }}</strong></td>
+            <td><span class="status-{{ check.status|lower }}">{{ check.status }}</span></td>
+            <td>
+                {% if check.value %}
+                    {{ check.value|floatformat:4 }} {{ check.units }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                {% if check.limit %}
+                    {{ check.limit|floatformat:2 }} {{ check.units }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                {% if check.detail %}
+                    <ul style="margin: 0; padding-left: 20px;">
+                        {% for key, value in check.detail.items %}
+                        <li><strong>{{ key }}:</strong> 
+                            {% if value is None %}
+                                null
+                            {% elif value == True %}
+                                true
+                            {% elif value == False %}
+                                false
+                            {% else %}
+                                {{ value }}
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                {% if check.flags %}
+                    <p style="margin: 5px 0 0 0;"><strong>Flags:</strong> {{ check.flags|join:", " }}</p>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+
+<hr style="margin: 40px 0;">
+<p style="text-align: center; color: #666; font-size: 0.9em;">
+    <strong>REMINDER:</strong> This is a screening tool using a user-editable class envelope, not a certified IEC 61400-1 assessment.
+</p>
+{% endblock %}
