@@ -287,11 +287,30 @@ def commit_package(request, session_id):
                     )
 
             # Run Slice 0+1 assessment for new_scored turbines
-            # Create Assessment
+            # Get the first hub_climate for the assessment
+            first_hub_climate = HubClimate.objects.filter(site=site).first()
+            
+            if not first_hub_climate:
+                raise ValueError("No hub climate data found for assessment")
+            
+            # Create Assessment with class envelope snapshot
+            class_envelope_snapshot = {
+                'vref_i': class_envelope.vref_i,
+                'vref_ii': class_envelope.vref_ii,
+                'vref_iii': class_envelope.vref_iii,
+                'iref_a_plus': class_envelope.iref_a_plus,
+                'iref_a': class_envelope.iref_a,
+                'iref_b': class_envelope.iref_b,
+                'iref_c': class_envelope.iref_c,
+                'vave_over_vref': class_envelope.vave_over_vref
+            }
+            
             assessment = Assessment.objects.create(
-                layout=layout,
-                hub_climate=hub_climate,
-                complexity=site.default_complexity
+                project=project,
+                site=site,
+                name=f"Assessment for {layout.name}",
+                edition='ed4',
+                class_envelope_snapshot=class_envelope_snapshot
             )
 
             # Create AssessmentTurbine for each new_scored turbine and run assessment
@@ -300,7 +319,7 @@ def commit_package(request, session_id):
                 assessment_turbine = AssessmentTurbine.objects.create(
                     assessment=assessment,
                     turbine=turbine,
-                    hub_climate=hub_climate
+                    hub_climate=first_hub_climate
                 )
                 
                 try:
