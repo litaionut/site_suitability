@@ -15,27 +15,52 @@ A Django-based web application for assessing wind turbine site suitability based
   - `climate` - Hub climate data and TI bins
   - `assessments` - Site suitability assessments with 7 checks
 - **Assessment checks:**
-  1. Extreme wind
-  2. Wind distribution (Rayleigh comparison)
-  3. Turbulence NTM with damage-equivalent ratios
-  4. Shear (energy-weighted)
-  5. Inflow angle (energy-weighted)
-  6. Air density
-  7. Complexity (CCT factor)
+  1. Complexity (CCT factor)
+  2. Extreme wind
+  3. Wind distribution (Rayleigh comparison)
+  4. Turbulence NTM with damage-equivalent ratios (Slice 0)
+  5. Effective turbulence with wake (Slice 1, Frandsen-inspired)
+  6. Shear (energy-weighted)
+  7. Inflow angle (energy-weighted)
+  8. Air density
 - **Test coverage** with pytest and golden test fixtures
 - **CI/CD** with GitHub Actions running tests on every push/PR
 - **HTML reports** with disclaimer (Slice 0 reports are HTML-only; PDF is later)
 
 ## What This Tool Does NOT Include
 
-This is Slice 0 - a screening tool only. It does NOT implement:
+This screening tool does NOT implement:
 - WAsP wind flow modeling
 - PARK or other AEP calculations
 - MCP (Measure-Correlate-Predict)
 - Mesoscale wind data
-- DEM terrain complexity analysis
-- Frandsen wake models
+- DEM terrain complexity analysis (WindPRO 25-plane fit)
 - Turbine load response calculations
+- EMD yellow-band numeric thresholds
+- Large-farm wake correction models
+
+## Slice 1: Effective Turbulence (Frandsen-Inspired Wake Model)
+
+**Added:** Effective turbulence assessment with wake contributions as check ID `turbulence_ieff`.
+
+This is a SECOND turbulence check that runs alongside the existing ambient NTM check from Slice 0. It uses a public A1/Ct wake kernel:
+
+```
+σ_wake = V / (1.5 + 0.8 · (d/D_up) / √Ct)
+σ_T = sqrt(σ_wake² + σ_c²)  for nearest neighbor in 30° sector with d ≤ 10 D
+σ_eff = (Σ_j p_j · σ_T^m)^(1/m)  with m=10 for direction weighting
+```
+
+**Key features:**
+- 30° sector binning (12 sectors, nearest neighbor per sector)
+- 10D distance cutoff
+- Ct fallback: Ct = 7/V if curve missing (flagged)
+- Omni-directional default (uniform 1/12 per sector, flagged)
+- Status: Pass if no exceedance; Warn if exceed but R(10)≤1; Fail if R(10)>1
+
+**Public domain reference:** DNV-style formulation, not IEC Edition 3 coefficients. See `docs/slice1/SLICE1_CALC_SPEC.md` for full specification.
+
+**Important:** This is screening against a user-editable class envelope, not a certified IEC 61400-1 assessment. Do not use for load response calculations.
 
 ## Quick Start
 
@@ -169,10 +194,15 @@ All layout coordinates (turbine x, y) are in this CRS, in metres.
 
 ## Golden Tests
 
-Two golden test fixtures are included:
+Four golden test fixtures are included:
 
+**Slice 0 (Ambient Turbulence NTM):**
 1. **GOLDEN_PASS_T1** - Class IIB, ed4, passing all checks
 2. **GOLDEN_FAIL_T1** - Class IIB, ed4, failing extreme wind and turbulence
+
+**Slice 1 (Effective Turbulence with Wake):**
+3. **GOLDEN_IEFF_PASS** - 8D spacing, R(10)=0.852606, Pass
+4. **GOLDEN_IEFF_FAIL** - 3D spacing, R(10)=1.246112, Fail
 
 These are the contract. The numbers must match exactly (±1e-5 tolerance).
 

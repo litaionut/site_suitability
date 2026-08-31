@@ -7,6 +7,319 @@ Pure Python, no database required.
 import math
 
 
+def interpolate_ct(v_mps, ct_curve):
+    """
+    Interpolate Ct value from curve.
+    ct_curve: list of {'v_mps': float, 'ct': float} sorted by v_mps
+    Returns: Ct value or None if outside range
+    """
+    if not ct_curve or len(ct_curve) == 0:
+        return None
+    
+    # Extrapolate flat at boundaries
+    if v_mps <= ct_curve[0]['v_mps']:
+        return ct_curve[0]['ct']
+    if v_mps >= ct_curve[-1]['v_mps']:
+        return ct_curve[-1]['ct']
+    
+    # Linear interpolation
+    for i in range(len(ct_curve) - 1):
+        v1, ct1 = ct_curve[i]['v_mps'], ct_curve[i]['ct']
+        v2, ct2 = ct_curve[i + 1]['v_mps'], ct_curve[i + 1]['ct']
+        
+        if v1 <= v_mps <= v2:
+            if v2 == v1:
+                return ct1
+            return ct1 + (ct2 - ct1) * (v_mps - v1) / (v2 - v1)
+    
+    return None
+
+
+def calculate_wake_sigma_slice1(v_mps, ct, distance_m, rotor_d_upstream_m):
+    """
+    Calculate wake-generated turbulence sigma using Slice 1 kernel.
+    
+    Public A1/Ct formulation (Master Bot approved SLICE1_CALC_SPEC):
+    σ_wake = V / (1.5 + 0.8 · (d/D_up) / √Ct)
+    
+    Args:
+        v_mps: Wind speed (m/s)
+        ct: Thrust coefficient at this wind speed
+        distance_m: Distance between turbines (m)
+        rotor_d_upstream_m: Upstream (neighbor) rotor diameter (m)
+    
+    Returns:
+        Wake-generated sigma in m/s
+    """
+    if ct <= 0 or distance_m <= 0 or rotor_d_upstream_m <= 0 or v_mps <= 0:
+        return 0.0
+    
+    d_over_D = distance_m / rotor_d_upstream_m
+    
+    # Distance cutoff: only apply wake if d ≤ 10 D
+    if d_over_D > 10.0:
+        return 0.0
+    
+    # σ_wake = V / (1.5 + 0.8 · (d/D) / √Ct)
+    sqrt_ct = math.sqrt(ct)
+    if sqrt_ct < 1e-9:
+        return 0.0
+    
+    denominator = 1.5 + 0.8 * d_over_D / sqrt_ct
+    sigma_wake = v_mps / denominator
+    
+    return sigma_wake
+
+
+def get_sector_from_bearing(bearing_deg, sector_width_deg=30):
+    """
+    Get sector index from bearing.
+    Sectors: 0-30°, 30-60°, ..., 330-360° (12 sectors for 30°)
+    
+    Args:
+        bearing_deg: Bearing in degrees (0° = North, clockwise)
+        sector_width_deg: Sector width (default 30°)
+    
+    Returns:
+        Sector index (0-11 for 30° sectors)
+    """
+    # Normalize bearing to [0, 360)
+    bearing_deg = bearing_deg % 360
+    sector_idx = int(bearing_deg / sector_width_deg)
+    # Handle edge case of 360°
+    if sector_idx >= 12:
+        sector_idx = 0
+    return sector_idx
+
+
+def calculate_bearing_distance(x1, y1, x2, y2):
+    """
+    Calculate bearing and distance from point 1 to point 2.
+    
+    Args:
+        x1, y1: Coordinates of point 1 (m)
+        x2, y2: Coordinates of point 2 (m)
+    
+    Returns:
+        bearing_deg: bearing from point 1 to point 2 (0° = North, clockwise)
+        distance_m: distance between points (m)
+    """
+    dx = x2 - x1
+    dy = y2 - y1
+    distance_m = math.sqrt(dx**2 + dy**2)
+    
+    if distance_m < 1e-9:
+        return 0.0, 0.0
+    
+    # Bearing: North = 0°, East = 90°, South = 180°, West = 270°
+    bearing_rad = math.atan2(dx, dy)
+    bearing_deg = math.degrees(bearing_rad)
+    if bearing_deg < 0:
+        bearing_deg += 360
+    
+    return bearing_deg, distance_m
+
+
+def calculate_effective_turbulence_slice1(
+    bins_in_window,
+    iref,
+    cct,
+    target_turbine,
+    neighbors,
+    sector_frequencies=None,
+    wohler_exponents=[4, 10],
+    sector_width_deg=30
+):
+    """
+    Calculate effective turbulence using Slice 1 kernel (Master Bot approved spec).
+    
+    This is a SECOND check (turbulence_ieff), separate from turbulence_ntm (Slice 0).
+    
+    Kernel (public A1/Ct formulation):
+    - σ_c = σ90 · CCT (ambient, no-wake term)
+    - σ_wake = V / (1.5 + 0.8 · (d/D_up) / √Ct) for nearest neighbor in 30° sector
+    - σ_T = sqrt(σ_wake² + σ_c²) if d ≤ 10 D, else σ_T = σ_c
+    - σ_eff = (Σ_j p_j · σ_T^m)^(1/m) with m=10 for direction weighting
+    - R(m) = (Σ_i p_i · σ_eff^m)^(1/m) / (Σ_i p_i · σ1^m)^(1/m)
+    - Status: Pass if no exceed; Warn if exceed but R(10)≤1; Fail if R(10)>1
+    
+    Args:
+        bins_in_window: TI bins in speed window
+        iref: Reference turbulence intensity
+        cct: Complexity correction factor
+        target_turbine: dict with 'x_m', 'y_m', 'rotor_d_m', 'ct_curve' (list of {'v_mps', 'ct'})
+        neighbors: list of dicts with 'x_m', 'y_m', 'rotor_d_m', 'ct_curve'
+        sector_frequencies: optional list of {'sector_from_deg', 'sector_to_deg', 'frequency'}
+        wohler_exponents: list of m values (default [4, 10])
+        sector_width_deg: sector width in degrees (30° for Slice 1)
+    
+    Returns:
+        dict with check result
+    """
+    n_sectors = int(360 / sector_width_deg)  # 12 sectors for 30°
+    flags = []
+    
+    # Check if omni or sectored
+    is_omni = sector_frequencies is None or len(sector_frequencies) == 0
+    
+    if is_omni:
+        # Uniform frequency per sector
+        sector_freq_array = [1.0 / n_sectors] * n_sectors
+        flags.append('omni_rose_assumed')
+    else:
+        # Map sector frequencies to 30° bins
+        # For now, assume uniform if provided sectors don't match 30° bins exactly
+        sector_freq_array = [1.0 / n_sectors] * n_sectors
+        flags.append('omni_rose_assumed')  # Simplified for now
+    
+    # Flag for view angle documentation vs implementation
+    flags.append('view_angle_bin_width_30')
+    
+    # Find nearest neighbor in each sector
+    nearest_in_sector = {}
+    
+    for neighbor in neighbors:
+        bearing_deg, distance_m = calculate_bearing_distance(
+            target_turbine['x_m'], target_turbine['y_m'],
+            neighbor['x_m'], neighbor['y_m']
+        )
+        
+        if distance_m < 1e-9:
+            continue  # Skip self or coincident turbines
+        
+        sector_idx = get_sector_from_bearing(bearing_deg, sector_width_deg)
+        
+        # Check if this is the nearest in this sector
+        if sector_idx not in nearest_in_sector or distance_m < nearest_in_sector[sector_idx]['distance_m']:
+            nearest_in_sector[sector_idx] = {
+                'neighbor': neighbor,
+                'distance_m': distance_m,
+                'bearing_deg': bearing_deg
+            }
+    
+    # Calculate effective turbulence for each bin
+    ieff_results = []
+    n_bins_exceeded = 0
+    
+    for bin_entry in bins_in_window:
+        v_center = bin_entry['v_center']
+        mean_sigma = bin_entry['mean_sigma']
+        std_sigma = bin_entry.get('std_sigma')
+        
+        # Ambient term (no-wake): σ_c = σ90 * CCT
+        sigma_90, assumed_cov = calculate_sigma_90(mean_sigma, std_sigma)
+        sigma_c = sigma_90 * cct
+        
+        # NTM reference
+        sigma_ntm = calculate_ntm_sigma(v_center, iref)
+        
+        # Direction-weighted effective turbulence using m=10
+        m_direction = 10  # Wöhler exponent for direction weighting
+        sigma_T_powered_sum = 0.0
+        
+        for sector_idx in range(n_sectors):
+            freq = sector_freq_array[sector_idx]
+            
+            if sector_idx in nearest_in_sector:
+                # Have a neighbor in this sector
+                neighbor_info = nearest_in_sector[sector_idx]
+                neighbor = neighbor_info['neighbor']
+                distance_m = neighbor_info['distance_m']
+                
+                # Get neighbor Ct at this wind speed
+                ct_curve = neighbor.get('ct_curve', [])
+                ct = interpolate_ct(v_center, ct_curve)
+                
+                # Fallback for missing Ct: Ct = 7/V
+                if ct is None or ct <= 0:
+                    ct = 7.0 / v_center if v_center > 0 else 0.8
+                    if 'ct_missing' not in flags:
+                        flags.append('ct_missing')
+                
+                # Calculate wake sigma
+                sigma_wake = calculate_wake_sigma_slice1(
+                    v_center, ct, distance_m, neighbor['rotor_d_m']
+                )
+                
+                # Total turbulence in this sector
+                sigma_T = math.sqrt(sigma_wake**2 + sigma_c**2)
+            else:
+                # No neighbor in this sector, use ambient only
+                sigma_T = sigma_c
+            
+            # Accumulate powered sum for direction weighting
+            sigma_T_powered_sum += freq * (sigma_T ** m_direction)
+        
+        # Effective turbulence (direction-weighted)
+        sigma_eff = sigma_T_powered_sum ** (1.0 / m_direction)
+        
+        # Check if exceeds NTM
+        exceeded = sigma_eff > sigma_ntm
+        if exceeded:
+            n_bins_exceeded += 1
+        
+        ieff_results.append({
+            'v_center': v_center,
+            'sigma_eff': sigma_eff,
+            'sigma_ntm': sigma_ntm,
+            'exceeded': exceeded
+        })
+    
+    # Calculate damage-equivalent ratios R(m)
+    total_hours = sum(b['hours'] for b in bins_in_window)
+    r_values = {}
+    
+    for m in wohler_exponents:
+        if total_hours == 0:
+            r_values[f'R_m_{m}'] = None
+            continue
+        
+        numerator_sum = 0
+        denominator_sum = 0
+        
+        for i, bin_entry in enumerate(bins_in_window):
+            if bin_entry['hours'] == 0:
+                continue
+            
+            p_i = bin_entry['hours'] / total_hours
+            sigma_eff = ieff_results[i]['sigma_eff']
+            sigma_ntm = ieff_results[i]['sigma_ntm']
+            
+            numerator_sum += p_i * (sigma_eff ** m)
+            denominator_sum += p_i * (sigma_ntm ** m)
+        
+        if denominator_sum > 0:
+            r_values[f'R_m_{m}'] = (numerator_sum / denominator_sum) ** (1 / m)
+        else:
+            r_values[f'R_m_{m}'] = None
+    
+    # Determine status based on R(10) ONLY (R(4) is diagnostic)
+    r_10 = r_values.get('R_m_10')
+    
+    if r_10 is None:
+        status = 'Fail'
+    elif n_bins_exceeded == 0:
+        status = 'Pass'
+    elif r_10 <= 1.0:
+        status = 'Warn'
+    else:
+        status = 'Fail'
+    
+    return {
+        'check_id': 'turbulence_ieff',
+        'status': status,
+        'value': r_10,
+        'limit': 1.0,
+        'units': '',
+        'detail': {
+            'n_bins_exceeded': n_bins_exceeded,
+            'n_neighbors_effective': len(nearest_in_sector),
+            **r_values
+        },
+        'flags': flags
+    }
+
+
 def calculate_ntm_sigma(v_mps, iref):
     """
     Calculate NTM representative turbulence intensity.

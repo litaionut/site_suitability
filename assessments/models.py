@@ -80,6 +80,7 @@ class CheckResult(models.Model):
     CHECK_EXTREME_WIND = 'extreme_wind'
     CHECK_WIND_DISTRIBUTION = 'wind_distribution'
     CHECK_TURBULENCE_NTM = 'turbulence_ntm'
+    CHECK_EFFECTIVE_TURBULENCE = 'effective_turbulence'
     CHECK_SHEAR = 'shear'
     CHECK_INFLOW = 'inflow'
     CHECK_AIR_DENSITY = 'air_density'
@@ -89,6 +90,7 @@ class CheckResult(models.Model):
         (CHECK_EXTREME_WIND, 'Extreme Wind'),
         (CHECK_WIND_DISTRIBUTION, 'Wind Distribution'),
         (CHECK_TURBULENCE_NTM, 'Turbulence NTM'),
+        (CHECK_EFFECTIVE_TURBULENCE, 'Effective Turbulence (Frandsen)'),
         (CHECK_SHEAR, 'Shear'),
         (CHECK_INFLOW, 'Inflow'),
         (CHECK_AIR_DENSITY, 'Air Density'),

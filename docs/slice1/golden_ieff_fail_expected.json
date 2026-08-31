@@ -1,0 +1,79 @@
+{
+  "name": "GOLDEN_IEFF_FAIL",
+  "description": "Class IIB ed4, 3D spacing, σ90=0.1256*V, Fail with R(10)=1.246112",
+  "input": {
+    "edition": "ed4",
+    "vref": 42.5,
+    "iref": 0.14,
+    "vave": 8.5,
+    "cct": 1.0,
+    "target_turbine": {
+      "x_m": 0,
+      "y_m": 360,
+      "rotor_d_m": 120,
+      "ct_curve": [
+        {"v_mps": 3, "ct": 0.80}, {"v_mps": 4, "ct": 0.80}, {"v_mps": 5, "ct": 0.80},
+        {"v_mps": 6, "ct": 0.80}, {"v_mps": 7, "ct": 0.80}, {"v_mps": 8, "ct": 0.80},
+        {"v_mps": 9, "ct": 0.80}, {"v_mps": 10, "ct": 0.80}, {"v_mps": 11, "ct": 0.80},
+        {"v_mps": 12, "ct": 0.80}, {"v_mps": 13, "ct": 0.742308}, {"v_mps": 14, "ct": 0.684615},
+        {"v_mps": 15, "ct": 0.626923}, {"v_mps": 16, "ct": 0.569231}, {"v_mps": 17, "ct": 0.511538},
+        {"v_mps": 18, "ct": 0.453846}, {"v_mps": 19, "ct": 0.396154}, {"v_mps": 20, "ct": 0.338462},
+        {"v_mps": 21, "ct": 0.280769}, {"v_mps": 22, "ct": 0.223077}, {"v_mps": 23, "ct": 0.165385},
+        {"v_mps": 24, "ct": 0.107692}, {"v_mps": 25, "ct": 0.05}
+      ]
+    },
+    "neighbors": [
+      {
+        "x_m": 0,
+        "y_m": 0,
+        "rotor_d_m": 120,
+        "ct_curve": [
+          {"v_mps": 3, "ct": 0.80}, {"v_mps": 4, "ct": 0.80}, {"v_mps": 5, "ct": 0.80},
+          {"v_mps": 6, "ct": 0.80}, {"v_mps": 7, "ct": 0.80}, {"v_mps": 8, "ct": 0.80},
+          {"v_mps": 9, "ct": 0.80}, {"v_mps": 10, "ct": 0.80}, {"v_mps": 11, "ct": 0.80},
+          {"v_mps": 12, "ct": 0.80}, {"v_mps": 13, "ct": 0.742308}, {"v_mps": 14, "ct": 0.684615},
+          {"v_mps": 15, "ct": 0.626923}, {"v_mps": 16, "ct": 0.569231}, {"v_mps": 17, "ct": 0.511538},
+          {"v_mps": 18, "ct": 0.453846}, {"v_mps": 19, "ct": 0.396154}, {"v_mps": 20, "ct": 0.338462},
+          {"v_mps": 21, "ct": 0.280769}, {"v_mps": 22, "ct": 0.223077}, {"v_mps": 23, "ct": 0.165385},
+          {"v_mps": 24, "ct": 0.107692}, {"v_mps": 25, "ct": 0.05}
+        ]
+      }
+    ],
+    "ti_bins": [
+      {"v_center": 9.0, "hours": 709.803155, "mean_sigma": 0.9, "std_sigma": 0.18},
+      {"v_center": 10.0, "hours": 641.738849, "mean_sigma": 1.0, "std_sigma": 0.2},
+      {"v_center": 11.0, "hours": 562.068111, "mean_sigma": 1.1, "std_sigma": 0.22},
+      {"v_center": 12.0, "hours": 477.738723, "mean_sigma": 1.2, "std_sigma": 0.24},
+      {"v_center": 13.0, "hours": 394.584922, "mean_sigma": 1.3, "std_sigma": 0.26},
+      {"v_center": 14.0, "hours": 317.021044, "mean_sigma": 1.4, "std_sigma": 0.28},
+      {"v_center": 15.0, "hours": 247.964331, "mean_sigma": 1.5, "std_sigma": 0.3},
+      {"v_center": 16.0, "hours": 188.942998, "mean_sigma": 1.6, "std_sigma": 0.32},
+      {"v_center": 17.0, "hours": 140.329041, "mean_sigma": 1.7, "std_sigma": 0.34}
+    ],
+    "sector_frequencies": null,
+    "wohler_exponents": [4, 10]
+  },
+  "expected": {
+    "check_id": "turbulence_ieff",
+    "status": "Fail",
+    "detail": {
+      "R_m_4": 1.2228,
+      "R_m_10": 1.2461,
+      "n_bins_exceeded": 9,
+      "n_neighbors_effective": 1,
+      "omni_rose_assumed": true,
+      "view_angle_bin_width_30": true
+    },
+    "sample_bin_v15": {
+      "v_center": 15.0,
+      "ct_neighbor": 0.626923,
+      "distance_m": 360.0,
+      "d_over_D": 3.0,
+      "sigma_c": 1.884,
+      "sigma_wake": 3.3114,
+      "sigma_T": 3.8098,
+      "sigma_eff": 2.974,
+      "sigma_ntm": 2.359
+    }
+  }
+}
