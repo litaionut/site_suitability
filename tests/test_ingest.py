@@ -144,9 +144,9 @@ class TestIngestRoundTrip(TestCase):
         # Verify Assessment was created and run
         from assessments.models import Assessment, AssessmentTurbine, CheckResult
         
-        assessment = Assessment.objects.get(layout=layout)
+        assessment = Assessment.objects.get(site=site)
         self.assertIsNotNone(assessment)
-        self.assertEqual(assessment.complexity, 'simple')
+        self.assertEqual(assessment.edition, 'ed4')
         
         # Verify AssessmentTurbine for T01 (new_scored)
         assessment_turbines = AssessmentTurbine.objects.filter(assessment=assessment)
