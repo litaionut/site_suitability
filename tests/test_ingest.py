@@ -62,7 +62,11 @@ class TestIngestRoundTrip(TestCase):
         response = commit_package(request, session_id)
         response_data = json.loads(response.content)
 
-        self.assertEqual(response_data['status'], 'success')
+        # Debug: print full response if failed
+        if response_data.get('status') != 'success':
+            print(f"Commit failed: {response_data}")
+        
+        self.assertEqual(response_data['status'], 'success', f"Commit failed: {response_data.get('message', 'Unknown error')}")
         self.assertEqual(response_data['turbine_count'], 2)
 
         # Verify objects exist
@@ -262,7 +266,11 @@ class TestMissingCtHandling(TestCase):
         response = commit_package(request, session_id)
         response_data = json.loads(response.content)
 
-        self.assertEqual(response_data['status'], 'success')
+        # Debug: print full response if failed
+        if response_data.get('status') != 'success':
+            print(f"Commit failed: {response_data}")
+        
+        self.assertEqual(response_data['status'], 'success', f"Commit failed: {response_data.get('message', 'Unknown error')}")
 
         # Verify model has ct_status = 'missing'
         wtg_model = WtgModel.objects.get(name='TestModel-Missing-Ct')
