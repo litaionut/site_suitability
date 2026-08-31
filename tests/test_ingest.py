@@ -164,8 +164,8 @@ class TestIngestRoundTrip(TestCase):
         self.assertIsNotNone(ieff_check, "turbulence_ieff check should have run")
         self.assertIn(ieff_check.status, ['Pass', 'Warn', 'Fail'])
         
-        # Verify overall assessment status
-        self.assertIsNotNone(assessment_turbine.overall_status)
+        # Verify overall assessment status (on Assessment, not AssessmentTurbine)
+        self.assertIsNotNone(assessment.overall_status)
 
 
 @pytest.mark.django_db
