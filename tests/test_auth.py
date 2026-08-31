@@ -273,7 +273,7 @@ T02,new_scored,1500.0,2000.0,55.0,120.0,150.0,TestTurbine"""
         
         # Anonymous POST should return 403 or redirect
         response = self.client.post(
-            reverse('ingest:upload'),
+            reverse('ingest:upload_file'),
             {'file': json_file}
         )
         

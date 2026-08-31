@@ -15,6 +15,12 @@ class TurbineCSVImportTests(TestCase):
     
     def setUp(self):
         self.client = Client()
+        
+        # Create and login a test user
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.client.login(username='testuser', password='testpass')
+        
         self.project = Project.objects.create(name="Test Project")
         self.site = Site.objects.create(
             project=self.project,
@@ -154,6 +160,12 @@ class WindCSVImportTests(TestCase):
     
     def setUp(self):
         self.client = Client()
+        
+        # Create and login a test user
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.client.login(username='testuser', password='testpass')
+        
         self.project = Project.objects.create(name="Test Project")
         self.site = Site.objects.create(
             project=self.project,

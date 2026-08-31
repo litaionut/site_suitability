@@ -47,6 +47,7 @@ class TestIngestRoundTrip(TestCase):
         # Commit via API simulation
         from ingest.views import commit_package
         from django.http import HttpRequest
+        from django.contrib.auth.models import User, AnonymousUser
         from unittest.mock import Mock
 
         # Store in cache
@@ -54,9 +55,13 @@ class TestIngestRoundTrip(TestCase):
         cache_key = f'ingest_package_{session_id}'
         cache.set(cache_key, parsed_package, timeout=3600)
 
-        # Create mock request
+        # Create mock request with authenticated user
         request = Mock(spec=HttpRequest)
         request.method = 'POST'
+        # Add a mock authenticated user
+        mock_user = Mock()
+        mock_user.is_authenticated = True
+        request.user = mock_user
 
         # Commit
         response = commit_package(request, session_id)
@@ -262,6 +267,10 @@ class TestMissingCtHandling(TestCase):
 
         request = Mock(spec=HttpRequest)
         request.method = 'POST'
+        # Add authenticated user
+        mock_user = Mock()
+        mock_user.is_authenticated = True
+        request.user = mock_user
 
         response = commit_package(request, session_id)
         response_data = json.loads(response.content)
@@ -387,6 +396,10 @@ class TestDuplicateLocalId(TestCase):
 
         request = Mock(spec=HttpRequest)
         request.method = 'POST'
+        # Add authenticated user
+        mock_user = Mock()
+        mock_user.is_authenticated = True
+        request.user = mock_user
 
         response = commit_package(request, session_id)
         response_data = json.loads(response.content)
