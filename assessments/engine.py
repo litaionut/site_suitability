@@ -149,7 +149,8 @@ def calculate_effective_turbulence_slice1(
         cct: Complexity correction factor
         target_turbine: dict with 'x_m', 'y_m', 'rotor_d_m', 'ct_curve' (list of {'v_mps', 'ct'})
         neighbors: list of dicts with 'x_m', 'y_m', 'rotor_d_m', 'ct_curve'
-        sector_frequencies: optional list of {'sector_from_deg', 'sector_to_deg', 'frequency'}
+        sector_frequencies: optional list of {'sector_idx': int, 'frequency': float} for 30° sectors
+                           or None for omni-directional (uniform 1/12)
         wohler_exponents: list of m values (default [4, 10])
         sector_width_deg: sector width in degrees (30° for Slice 1)
     
@@ -163,14 +164,17 @@ def calculate_effective_turbulence_slice1(
     is_omni = sector_frequencies is None or len(sector_frequencies) == 0
     
     if is_omni:
-        # Uniform frequency per sector
+        # Uniform frequency per sector (omni-directional)
         sector_freq_array = [1.0 / n_sectors] * n_sectors
         flags.append('omni_rose_assumed')
     else:
-        # Map sector frequencies to 30° bins
-        # For now, assume uniform if provided sectors don't match 30° bins exactly
-        sector_freq_array = [1.0 / n_sectors] * n_sectors
-        flags.append('omni_rose_assumed')  # Simplified for now
+        # Use provided sector frequencies
+        # sector_frequencies is a list of {'sector_idx': int, 'frequency': float}
+        sector_freq_array = [0.0] * n_sectors
+        for sector_data in sector_frequencies:
+            sector_idx = sector_data['sector_idx']
+            if 0 <= sector_idx < n_sectors:
+                sector_freq_array[sector_idx] = sector_data['frequency']
     
     # Flag for view angle documentation vs implementation
     flags.append('view_angle_bin_width_30')
@@ -219,6 +223,9 @@ def calculate_effective_turbulence_slice1(
         
         for sector_idx in range(n_sectors):
             freq = sector_freq_array[sector_idx]
+            
+            if freq <= 0:
+                continue  # Skip sectors with zero frequency
             
             if sector_idx in nearest_in_sector:
                 # Have a neighbor in this sector

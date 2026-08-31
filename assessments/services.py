@@ -129,14 +129,18 @@ def run_assessment_for_turbine(assessment_turbine: AssessmentTurbine):
     sector_frequencies = None
     sector_weibulls = hub_climate.sector_weibulls.all().order_by('sector_from_deg')
     if sector_weibulls.exists():
-        sector_frequencies = [
-            {
-                'sector_from_deg': sw.sector_from_deg,
-                'sector_to_deg': sw.sector_to_deg,
+        # Map SectorWeibull data to 30° sector indices
+        sector_freq_list = []
+        for sw in sector_weibulls:
+            # Calculate which 30° sector(s) this SectorWeibull overlaps
+            # For simplicity, assign frequency to the sector containing the midpoint
+            sector_center = (sw.sector_from_deg + sw.sector_to_deg) / 2
+            sector_idx = int(sector_center / 30) % 12
+            sector_freq_list.append({
+                'sector_idx': sector_idx,
                 'frequency': sw.frequency
-            }
-            for sw in sector_weibulls
-        ]
+            })
+        sector_frequencies = sector_freq_list
     
     # Calculate effective turbulence
     bins_in_window = []

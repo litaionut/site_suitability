@@ -57,8 +57,8 @@
     "check_id": "turbulence_ieff",
     "status": "Fail",
     "detail": {
-      "R_m_4": 1.2228,
-      "R_m_10": 1.2461,
+      "R_m_4": 1.222754,
+      "R_m_10": 1.246112,
       "n_bins_exceeded": 9,
       "n_neighbors_effective": 1,
       "omni_rose_assumed": true,

@@ -186,8 +186,8 @@ class TestGoldenIeffPass:
         assert result['check_id'] == expected['check_id']
         
         # Check R values
-        assert_float_close(result['detail']['R_m_10'], expected['detail']['R_m_10'], abs_tol=1e-4)
-        assert_float_close(result['detail']['R_m_4'], expected['detail']['R_m_4'], abs_tol=1e-4)
+        assert_float_close(result['detail']['R_m_10'], expected['detail']['R_m_10'], abs_tol=1e-5)
+        assert_float_close(result['detail']['R_m_4'], expected['detail']['R_m_4'], abs_tol=1e-5)
         
         # Check flags
         assert 'omni_rose_assumed' in result['flags']
@@ -221,8 +221,82 @@ class TestGoldenIeffFail:
         assert result['check_id'] == expected['check_id']
         
         # Check R values
-        assert_float_close(result['detail']['R_m_10'], expected['detail']['R_m_10'], abs_tol=1e-4)
-        assert_float_close(result['detail']['R_m_4'], expected['detail']['R_m_4'], abs_tol=1e-4)
+        assert_float_close(result['detail']['R_m_10'], expected['detail']['R_m_10'], abs_tol=1e-5)
+        assert_float_close(result['detail']['R_m_4'], expected['detail']['R_m_4'], abs_tol=1e-5)
         
         # Check n_bins_exceeded
         assert result['detail']['n_bins_exceeded'] == expected['detail']['n_bins_exceeded']
+
+
+class TestNonUniformRose:
+    """Test that non-uniform wind rose changes σ_eff vs omni."""
+    
+    def test_non_uniform_rose_changes_sigma_eff(self):
+        """Test that a non-uniform rose produces different σ_eff than omni."""
+        # Same setup as PASS case but with non-uniform rose
+        # Target at (0, 960), neighbor at (0, 0) = North bearing (0°), sector 0
+        
+        bins_in_window = [
+            {"v_center": 15.0, "hours": 247.964331, "mean_sigma": 1.5, "std_sigma": 0.3}
+        ]
+        
+        target_turbine = {
+            'x_m': 0,
+            'y_m': 960,
+            'rotor_d_m': 120,
+            'ct_curve': [
+                {'v_mps': 12, 'ct': 0.80},
+                {'v_mps': 25, 'ct': 0.05}
+            ]
+        }
+        
+        neighbors = [{
+            'x_m': 0,
+            'y_m': 0,
+            'rotor_d_m': 120,
+            'ct_curve': [
+                {'v_mps': 12, 'ct': 0.80},
+                {'v_mps': 25, 'ct': 0.05}
+            ]
+        }]
+        
+        iref = 0.14
+        cct = 1.0
+        
+        # Case 1: Omni (uniform)
+        result_omni = calculate_effective_turbulence_slice1(
+            bins_in_window, iref, cct, target_turbine, neighbors,
+            sector_frequencies=None,  # Omni
+            wohler_exponents=[10]
+        )
+        
+        # Case 2: Non-uniform rose with 80% in sector 0 (where neighbor is), 20% in others
+        sector_frequencies_biased = [
+            {'sector_idx': 0, 'frequency': 0.80},  # North sector with neighbor
+        ] + [
+            {'sector_idx': i, 'frequency': 0.20/11} for i in range(1, 12)
+        ]
+        
+        result_biased = calculate_effective_turbulence_slice1(
+            bins_in_window, iref, cct, target_turbine, neighbors,
+            sector_frequencies=sector_frequencies_biased,
+            wohler_exponents=[10]
+        )
+        
+        # Verify omni has omni_rose_assumed flag
+        assert 'omni_rose_assumed' in result_omni['flags']
+        
+        # Verify biased does NOT have omni_rose_assumed flag
+        assert 'omni_rose_assumed' not in result_biased['flags']
+        
+        # Verify R(10) values are different
+        r10_omni = result_omni['detail']['R_m_10']
+        r10_biased = result_biased['detail']['R_m_10']
+        
+        # Values should be different (non-uniform rose affects the result)
+        assert abs(r10_biased - r10_omni) > 1e-6, \
+            f"Expected different R(10) values: biased={r10_biased}, omni={r10_omni}"
+        
+        # Difference should be significant (at least 1%)
+        assert abs(r10_biased - r10_omni) / r10_omni > 0.01, \
+            f"Difference {abs(r10_biased - r10_omni)} is not significant relative to {r10_omni}"

@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='checkresult',
             name='check_id',
-            field=models.CharField(choices=[('extreme_wind', 'Extreme Wind'), ('wind_distribution', 'Wind Distribution'), ('turbulence_ntm', 'Turbulence NTM'), ('effective_turbulence', 'Effective Turbulence (Frandsen)'), ('shear', 'Shear'), ('inflow', 'Inflow'), ('air_density', 'Air Density'), ('complexity', 'Complexity')], max_length=30),
+            field=models.CharField(choices=[('extreme_wind', 'Extreme Wind'), ('wind_distribution', 'Wind Distribution'), ('turbulence_ntm', 'Turbulence NTM'), ('turbulence_ieff', 'Effective Turbulence (Ieff)'), ('shear', 'Shear'), ('inflow', 'Inflow'), ('air_density', 'Air Density'), ('complexity', 'Complexity')], max_length=30),
         ),
     ]
