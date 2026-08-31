@@ -204,11 +204,13 @@ def calculate_effective_turbulence_slice1(
     # Calculate effective turbulence for each bin
     ieff_results = []
     n_bins_exceeded = 0
+    ieff_bin_details = []
     
     for bin_entry in bins_in_window:
         v_center = bin_entry['v_center']
         mean_sigma = bin_entry['mean_sigma']
         std_sigma = bin_entry.get('std_sigma')
+        hours = bin_entry['hours']
         
         # Ambient term (no-wake): σ_c = σ90 * CCT
         sigma_90, assumed_cov = calculate_sigma_90(mean_sigma, std_sigma)
@@ -217,9 +219,16 @@ def calculate_effective_turbulence_slice1(
         # NTM reference
         sigma_ntm = calculate_ntm_sigma(v_center, iref)
         
+        # Get target Ct at this speed
+        ct_curve_target = target_turbine.get('ct_curve', [])
+        ct_target = interpolate_ct(v_center, ct_curve_target)
+        ct_target_display = ct_target if ct_target is not None else 0.0
+        
         # Direction-weighted effective turbulence using m=10
         m_direction = 10  # Wöhler exponent for direction weighting
         sigma_T_powered_sum = 0.0
+        min_distance = None
+        n_wake_sectors = 0
         
         for sector_idx in range(n_sectors):
             freq = sector_freq_array[sector_idx]
@@ -228,10 +237,14 @@ def calculate_effective_turbulence_slice1(
                 continue  # Skip sectors with zero frequency
             
             if sector_idx in nearest_in_sector:
+                n_wake_sectors += 1
                 # Have a neighbor in this sector
                 neighbor_info = nearest_in_sector[sector_idx]
                 neighbor = neighbor_info['neighbor']
                 distance_m = neighbor_info['distance_m']
+                
+                if min_distance is None or distance_m < min_distance:
+                    min_distance = distance_m
                 
                 # Get neighbor Ct at this wind speed
                 ct_curve = neighbor.get('ct_curve', [])
@@ -270,6 +283,21 @@ def calculate_effective_turbulence_slice1(
             'sigma_eff': sigma_eff,
             'sigma_ntm': sigma_ntm,
             'exceeded': exceeded
+        })
+        
+        # Store per-bin details for HTML display
+        d_over_D = (min_distance / target_turbine['rotor_d_m']) if min_distance and target_turbine['rotor_d_m'] > 0 else None
+        ieff_bin_details.append({
+            'v_center': v_center,
+            'ct': ct_target_display,
+            'sigma_c': sigma_c,
+            'sigma_eff': sigma_eff,
+            'sigma_ntm': sigma_ntm,
+            'i_eff': sigma_eff / v_center if v_center > 0 else 0,
+            'i_ntm': sigma_ntm / v_center if v_center > 0 else 0,
+            'exceeded': exceeded,
+            'd_min_over_D': d_over_D,
+            'n_wake_sectors': n_wake_sectors
         })
     
     # Calculate damage-equivalent ratios R(m)
@@ -321,6 +349,7 @@ def calculate_effective_turbulence_slice1(
         'detail': {
             'n_bins_exceeded': n_bins_exceeded,
             'n_neighbors_effective': len(nearest_in_sector),
+            'ieff_bin_details': ieff_bin_details,
             **r_values
         },
         'flags': flags
@@ -579,18 +608,32 @@ def run_assessment(input_data):
     # ===== CHECK 2: WIND DISTRIBUTION =====
     max_bin_ratio = 0
     n_bins_exceeded = 0
+    dist_bin_details = []
     
     for bin_entry in bins_in_window:
         hours = bin_entry['hours']
+        v_center = bin_entry['v_center']
         p_site = hours / period_hours
         p_rayleigh = bin_entry['rayleigh_prob']
         
         # relative tolerance 1e-6
-        if p_site > p_rayleigh * (1 + 1e-6):
+        exceeded = p_site > p_rayleigh * (1 + 1e-6)
+        if exceeded:
             n_bins_exceeded += 1
             ratio = p_site / p_rayleigh if p_rayleigh > 0 else float('inf')
             if ratio > max_bin_ratio:
                 max_bin_ratio = ratio
+        else:
+            ratio = p_site / p_rayleigh if p_rayleigh > 0 else 0
+        
+        # Store per-bin details for HTML display
+        dist_bin_details.append({
+            'v_center': v_center,
+            'p_site': p_site,
+            'p_rayleigh': p_rayleigh,
+            'ratio': ratio,
+            'exceeded': exceeded
+        })
     
     wind_dist_status = 'Pass' if n_bins_exceeded == 0 else 'Fail'
     
@@ -602,7 +645,8 @@ def run_assessment(input_data):
         'units': '',
         'detail': {
             'max_bin_ratio': max_bin_ratio if n_bins_exceeded > 0 else 1.0,
-            'n_bins_exceeded': n_bins_exceeded
+            'n_bins_exceeded': n_bins_exceeded,
+            'dist_bin_details': dist_bin_details
         },
         'flags': []
     }
@@ -622,11 +666,13 @@ def run_assessment(input_data):
         n_bins_exceeded_ti = 0
         max_r_values = {}
         assumed_cov_flag = False
+        ti_bin_details = []
         
         for bin_entry in bins_in_window:
             v_center = bin_entry['v_center']
             mean_sigma = bin_entry['mean_sigma']
             std_sigma = bin_entry.get('std_sigma')
+            hours = bin_entry['hours']
             
             sigma_90, assumed_cov = calculate_sigma_90(mean_sigma, std_sigma)
             if assumed_cov:
@@ -635,8 +681,21 @@ def run_assessment(input_data):
             sigma_site = sigma_90 * cct
             sigma_ntm = calculate_ntm_sigma(v_center, iref)
             
-            if sigma_site > sigma_ntm:
+            exceeded = sigma_site > sigma_ntm
+            if exceeded:
                 n_bins_exceeded_ti += 1
+            
+            # Store per-bin details for HTML display
+            ti_bin_details.append({
+                'v_center': v_center,
+                'hours': hours,
+                'sigma_90': sigma_90,
+                'sigma_site': sigma_site,
+                'sigma_ntm': sigma_ntm,
+                'ti_site': sigma_site / v_center if v_center > 0 else 0,
+                'ti_ntm': sigma_ntm / v_center if v_center > 0 else 0,
+                'exceeded': exceeded
+            })
         
         # Damage equivalent ratios
         for m in wohler_exponents:
@@ -680,6 +739,7 @@ def run_assessment(input_data):
             'detail': {
                 'n_bins_exceeded': n_bins_exceeded_ti,
                 'assumed_cov_0_3': assumed_cov_flag,
+                'ti_bin_details': ti_bin_details,
                 **max_r_values
             },
             'flags': ti_flags

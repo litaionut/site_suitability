@@ -5,12 +5,14 @@ import csv
 import io
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Layout, Turbine, WtgModel
 from .forms import LayoutForm, TurbineForm
 from sites.models import Site
 
 
+@login_required
 def layout_create(request, site_pk):
     """Create a new layout for a site."""
     site = get_object_or_404(Site, pk=site_pk)
@@ -42,6 +44,7 @@ def layout_detail(request, pk):
     })
 
 
+@login_required
 def layout_edit(request, pk):
     """Edit an existing layout."""
     layout = get_object_or_404(Layout, pk=pk)
@@ -61,6 +64,7 @@ def layout_edit(request, pk):
     })
 
 
+@login_required
 def turbine_create(request, layout_pk):
     """Create a new turbine for a layout."""
     layout = get_object_or_404(Layout, pk=layout_pk)
@@ -85,6 +89,7 @@ def turbine_create(request, layout_pk):
     })
 
 
+@login_required
 def turbine_edit(request, pk):
     """Edit an existing turbine."""
     turbine = get_object_or_404(Turbine, pk=pk)
@@ -104,6 +109,7 @@ def turbine_edit(request, pk):
     })
 
 
+@login_required
 def turbine_delete(request, pk):
     """Delete a turbine."""
     turbine = get_object_or_404(Turbine, pk=pk)
@@ -114,6 +120,7 @@ def turbine_delete(request, pk):
     return redirect('turbines:layout_detail', pk=layout_pk)
 
 
+@login_required
 def turbine_import_csv(request, layout_pk):
     """Import turbines from CSV."""
     layout = get_object_or_404(Layout, pk=layout_pk)
@@ -141,6 +148,7 @@ def turbine_import_csv(request, layout_pk):
             
             errors = []
             turbines_to_create = []
+            stub_models_to_create = []
             existing_local_ids = set(layout.turbines.values_list('local_id', flat=True))
             new_local_ids = set()
             
@@ -167,19 +175,16 @@ def turbine_import_csv(request, layout_pk):
                         try:
                             model = WtgModel.objects.get(name=model_name)
                         except WtgModel.DoesNotExist:
-                            # Create stub model if rotor_d and hub_height present
+                            # Mark stub model for creation (will be created in transaction)
                             rotor_d = float(row['rotor_d_m'])
                             hub_height = float(row['hub_height_m'])
-                            model = WtgModel.objects.create(
-                                name=model_name,
-                                rotor_d_m=rotor_d,
-                                hub_height_default_m=hub_height,
-                                v_in_mps=3.0,
-                                v_rated_mps=11.0,
-                                v_out_mps=25.0,
-                                ct_status=WtgModel.CT_STATUS_MISSING
-                            )
-                            messages.warning(request, f'Row {row_num}: Created stub model "{model_name}" (Ct missing)')
+                            stub_models_to_create.append({
+                                'name': model_name,
+                                'rotor_d_m': rotor_d,
+                                'hub_height_default_m': hub_height,
+                                'row_num': row_num
+                            })
+                            model = model_name  # Store name temporarily
                     
                     turbine = Turbine(
                         layout=layout,
@@ -190,9 +195,9 @@ def turbine_import_csv(request, layout_pk):
                         z_base_m=float(row['z_base_m']),
                         hub_height_m=float(row['hub_height_m']),
                         rotor_d_m=float(row['rotor_d_m']),
-                        model=model
+                        model=model if isinstance(model, WtgModel) else None  # Will be set later for stubs
                     )
-                    turbines_to_create.append(turbine)
+                    turbines_to_create.append((turbine, model if isinstance(model, str) else None))
                 
                 except (ValueError, KeyError) as e:
                     errors.append(f'Row {row_num}: {str(e)}')
@@ -204,9 +209,33 @@ def turbine_import_csv(request, layout_pk):
                     messages.error(request, error)
                 return redirect('turbines:layout_detail', pk=layout.pk)
             
-            # Save all turbines
+            # Save all turbines and stub models in a single transaction
             with transaction.atomic():
-                for turbine in turbines_to_create:
+                # Create stub models first
+                stub_model_map = {}
+                for stub_data in stub_models_to_create:
+                    model_name = stub_data['name']
+                    # Check if another parallel request created it
+                    existing_model = WtgModel.objects.filter(name=model_name).first()
+                    if existing_model:
+                        stub_model_map[model_name] = existing_model
+                    else:
+                        wtg_model = WtgModel.objects.create(
+                            name=model_name,
+                            rotor_d_m=stub_data['rotor_d_m'],
+                            hub_height_default_m=stub_data['hub_height_default_m'],
+                            v_in_mps=3.0,
+                            v_rated_mps=11.0,
+                            v_out_mps=25.0,
+                            ct_status=WtgModel.CT_STATUS_MISSING
+                        )
+                        stub_model_map[model_name] = wtg_model
+                        messages.warning(request, f'Row {stub_data["row_num"]}: Created stub model "{model_name}" (Ct missing)')
+                
+                # Create turbines
+                for turbine, pending_model_name in turbines_to_create:
+                    if pending_model_name:
+                        turbine.model = stub_model_map[pending_model_name]
                     turbine.save()
             
             messages.success(request, f'Successfully imported {len(turbines_to_create)} turbines.')

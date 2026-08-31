@@ -3,6 +3,7 @@ Views for assessments app.
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Assessment, AssessmentTurbine, CheckResult
 from .services import run_assessment_for_turbine
@@ -34,6 +35,7 @@ def assessment_report(request, pk):
     })
 
 
+@login_required
 def run_assessment_view(request, pk):
     """Run assessment for all turbines."""
     assessment = get_object_or_404(Assessment, pk=pk)
@@ -48,6 +50,7 @@ def run_assessment_view(request, pk):
     return redirect('assessments:detail', pk=pk)
 
 
+@login_required
 def layout_assessment_setup(request, layout_pk):
     """Setup assessment for a layout."""
     layout = get_object_or_404(Layout, pk=layout_pk)
@@ -82,6 +85,11 @@ def layout_assessment_setup(request, layout_pk):
         
         # Create assessment
         with transaction.atomic():
+            # Check if class envelope has any missing values
+            class_envelope_used_defaults = False
+            # We cannot determine if defaults were used from here, so we assume all values are explicit
+            # This flag is mainly for ingest flow
+            
             assessment = Assessment.objects.create(
                 project=project,
                 site=site,
@@ -96,6 +104,7 @@ def layout_assessment_setup(request, layout_pk):
                     'iref_b': class_envelope.iref_b,
                     'iref_c': class_envelope.iref_c,
                     'vave_over_vref': class_envelope.vave_over_vref,
+                    'class_envelope_django_defaults': class_envelope_used_defaults
                 }
             )
             

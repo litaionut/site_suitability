@@ -6,8 +6,8 @@
 <h1>Site Suitability Assessment Report</h1>
 <h2>{{ assessment.name }}</h2>
 
-<div class="disclaimer">
-    <strong>DISCLAIMER:</strong> Screening against a user-editable class envelope, not a certified IEC 61400-1 assessment.
+<div class="disclaimer" style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px;">
+    <strong>⚠️ SCREENING DISCLAIMER:</strong> This is a screening tool using a user-editable class envelope, <strong>NOT a certified IEC 61400-1 assessment</strong>. Results are for preliminary screening only. Final site assessments must be performed by qualified engineers following the complete IEC 61400-1 standard.
 </div>
 
 <h3>Assessment Information</h3>
@@ -23,6 +23,15 @@
     <tr>
         <th>Edition</th>
         <td>{{ assessment.get_edition_display }}</td>
+    </tr>
+    <tr>
+        <th>Class Envelope</th>
+        <td>
+            <strong>Class envelope (editable)</strong>
+            {% if assessment.class_envelope_snapshot.class_envelope_django_defaults %}
+            <br><em style="color: #856404;">Note: Some values use product defaults (not from source data)</em>
+            {% endif %}
+        </td>
     </tr>
     <tr>
         <th>Overall Status</th>
@@ -74,7 +83,130 @@
         <th>V50 (m/s)</th>
         <td>{{ at.hub_climate.v50_mps }}</td>
     </tr>
+    {% if at.turbine.model %}
+    <tr>
+        <th>Vr (Rated, m/s)</th>
+        <td>{{ at.turbine.model.v_rated_mps }}</td>
+    </tr>
+    <tr>
+        <th>Vout (Cut-out, m/s)</th>
+        <td>{{ at.turbine.model.v_out_mps }}</td>
+    </tr>
+    {% endif %}
 </table>
+
+{% for check in at.check_results.all %}
+    {% if check.check_id == 'turbulence_ntm' and check.detail.ti_bin_details %}
+<h4>Speed Window and TI Bins</h4>
+<p><strong>Speed Window:</strong> 
+{% if assessment.edition == 'ed4' %}
+    [{{ at.resolved_vave_mps|floatformat:2 }}, {{ at.resolved_vave_mps|multiply:2|floatformat:2 }}] m/s (Ed4: [Vave, 2*Vave])
+{% elif assessment.edition == 'ed3' and at.turbine.model %}
+    [{{ at.turbine.model.v_rated_mps|multiply:0.6|floatformat:2 }}, {{ at.turbine.model.v_out_mps|floatformat:2 }}] m/s (Ed3: [0.6*Vr, Vout])
+{% endif %}
+</p>
+
+<h5>Per-Bin Turbulence Intensity (NTM Check)</h5>
+<table style="font-size: 0.9em;">
+    <thead>
+        <tr>
+            <th>V (m/s)</th>
+            <th>Hours</th>
+            <th>σ90 (m/s)</th>
+            <th>σ_site (m/s)</th>
+            <th>σ_NTM (m/s)</th>
+            <th>TI_site</th>
+            <th>TI_NTM</th>
+            <th>Exceed?</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for bin in check.detail.ti_bin_details %}
+        <tr {% if bin.exceeded %}style="background-color: #ffe0e0;"{% endif %}>
+            <td>{{ bin.v_center|floatformat:1 }}</td>
+            <td>{{ bin.hours|floatformat:2 }}</td>
+            <td>{{ bin.sigma_90|floatformat:3 }}</td>
+            <td>{{ bin.sigma_site|floatformat:3 }}</td>
+            <td>{{ bin.sigma_ntm|floatformat:3 }}</td>
+            <td>{{ bin.ti_site|floatformat:4 }}</td>
+            <td>{{ bin.ti_ntm|floatformat:4 }}</td>
+            <td>{% if bin.exceeded %}<span style="color: red;">Yes</span>{% else %}<span style="color: green;">No</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+    {% endif %}
+{% endfor %}
+
+{% for check in at.check_results.all %}
+    {% if check.check_id == 'wind_distribution' and check.detail.dist_bin_details %}
+<h5>Distribution Overlay (Rayleigh Check)</h5>
+<table style="font-size: 0.9em;">
+    <thead>
+        <tr>
+            <th>V (m/s)</th>
+            <th>p_site</th>
+            <th>p_Rayleigh</th>
+            <th>Ratio</th>
+            <th>Exceed?</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for bin in check.detail.dist_bin_details %}
+        <tr {% if bin.exceeded %}style="background-color: #ffe0e0;"{% endif %}>
+            <td>{{ bin.v_center|floatformat:1 }}</td>
+            <td>{{ bin.p_site|floatformat:6 }}</td>
+            <td>{{ bin.p_rayleigh|floatformat:6 }}</td>
+            <td>{{ bin.ratio|floatformat:4 }}</td>
+            <td>{% if bin.exceeded %}<span style="color: red;">Yes</span>{% else %}<span style="color: green;">No</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+    {% endif %}
+{% endfor %}
+
+{% for check in at.check_results.all %}
+    {% if check.check_id == 'turbulence_ieff' and check.detail.ieff_bin_details %}
+<h5>Effective Turbulence per Bin (Ieff Check)</h5>
+<p>
+    <strong>R(10):</strong> {{ check.detail.R_m_10|floatformat:6 }} (Status: <span class="status-{{ check.status|lower }}">{{ check.status }}</span>)<br>
+    <strong>R(4) (diagnostic):</strong> {{ check.detail.R_m_4|floatformat:6 }}<br>
+    <strong>Wake sectors:</strong> {{ check.detail.n_neighbors_effective }} sectors with neighbors<br>
+    <strong>Ct status:</strong> {% if 'ct_missing' in check.flags %}Missing (fallback used){% else %}OK{% endif %}
+</p>
+<table style="font-size: 0.9em;">
+    <thead>
+        <tr>
+            <th>V (m/s)</th>
+            <th>C_t</th>
+            <th>σ_c (m/s)</th>
+            <th>σ_eff (m/s)</th>
+            <th>σ_NTM (m/s)</th>
+            <th>I_eff</th>
+            <th>I_NTM</th>
+            <th>d_min/D</th>
+            <th>Exceed?</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for bin in check.detail.ieff_bin_details %}
+        <tr {% if bin.exceeded %}style="background-color: #ffe0e0;"{% endif %}>
+            <td>{{ bin.v_center|floatformat:1 }}</td>
+            <td>{{ bin.ct|floatformat:3 }}</td>
+            <td>{{ bin.sigma_c|floatformat:3 }}</td>
+            <td>{{ bin.sigma_eff|floatformat:3 }}</td>
+            <td>{{ bin.sigma_ntm|floatformat:3 }}</td>
+            <td>{{ bin.i_eff|floatformat:4 }}</td>
+            <td>{{ bin.i_ntm|floatformat:4 }}</td>
+            <td>{% if bin.d_min_over_D %}{{ bin.d_min_over_D|floatformat:2 }}{% else %}-{% endif %}</td>
+            <td>{% if bin.exceeded %}<span style="color: red;">Yes</span>{% else %}<span style="color: green;">No</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+    {% endif %}
+{% endfor %}
 
 <h4>Check Results</h4>
 <table>
@@ -110,6 +242,7 @@
                 {% if check.detail %}
                     <ul style="margin: 0; padding-left: 20px;">
                         {% for key, value in check.detail.items %}
+                        {% if key != 'ti_bin_details' and key != 'dist_bin_details' and key != 'ieff_bin_details' %}
                         <li><strong>{{ key }}:</strong> 
                             {% if value is None %}
                                 null
@@ -121,6 +254,7 @@
                                 {{ value }}
                             {% endif %}
                         </li>
+                        {% endif %}
                         {% endfor %}
                     </ul>
                 {% endif %}
@@ -135,7 +269,13 @@
 {% endfor %}
 
 <hr style="margin: 40px 0;">
-<p style="text-align: center; color: #666; font-size: 0.9em;">
-    <strong>REMINDER:</strong> This is a screening tool using a user-editable class envelope, not a certified IEC 61400-1 assessment.
-</p>
+<div class="disclaimer" style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px;">
+    <p style="text-align: center; margin: 0; font-size: 1.1em;">
+        <strong>⚠️ SCREENING DISCLAIMER</strong>
+    </p>
+    <p style="text-align: center; margin: 10px 0 0 0;">
+        This is a screening tool using a user-editable class envelope, <strong>NOT a certified IEC 61400-1 assessment</strong>.<br>
+        Results are for preliminary screening only. Final site assessments must be performed by qualified engineers following the complete IEC 61400-1 standard.
+    </p>
+</div>
 {% endblock %}
