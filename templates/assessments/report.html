@@ -49,7 +49,8 @@
     </tr>
 </table>
 
-{% for at in assessment_turbines %}
+{% for td in turbine_data %}
+{% with at=td.assessment_turbine speed_window=td.speed_window %}
 <hr style="margin: 40px 0;">
 <h3>Turbine: {{ at.turbine.local_id }}</h3>
 
@@ -99,10 +100,11 @@
     {% if check.check_id == 'turbulence_ntm' and check.detail.ti_bin_details %}
 <h4>Speed Window and TI Bins</h4>
 <p><strong>Speed Window:</strong> 
-{% if assessment.edition == 'ed4' %}
-    [{{ at.resolved_vave_mps|floatformat:2 }}, {{ at.resolved_vave_mps|multiply:2|floatformat:2 }}] m/s (Ed4: [Vave, 2*Vave])
-{% elif assessment.edition == 'ed3' and at.turbine.model %}
-    [{{ at.turbine.model.v_rated_mps|multiply:0.6|floatformat:2 }}, {{ at.turbine.model.v_out_mps|floatformat:2 }}] m/s (Ed3: [0.6*Vr, Vout])
+{% if speed_window.v_lo and speed_window.v_hi %}
+    [{{ speed_window.v_lo|floatformat:2 }}, {{ speed_window.v_hi|floatformat:2 }}] m/s
+    ({% if assessment.edition == 'ed4' %}Ed4: [Vave, 2*Vave]{% elif assessment.edition == 'ed3' %}Ed3: [0.6*Vr, Vout]{% endif %})
+{% else %}
+    Not available
 {% endif %}
 </p>
 
@@ -172,7 +174,7 @@
 <p>
     <strong>R(10):</strong> {{ check.detail.R_m_10|floatformat:6 }} (Status: <span class="status-{{ check.status|lower }}">{{ check.status }}</span>)<br>
     <strong>R(4) (diagnostic):</strong> {{ check.detail.R_m_4|floatformat:6 }}<br>
-    <strong>Wake sectors:</strong> {{ check.detail.n_neighbors_effective }} sectors with neighbors<br>
+    <strong>Wake sectors:</strong> {{ check.detail.ieff_bin_details.0.n_wake_sectors|default:0 }} sectors with neighbors<br>
     <strong>Ct status:</strong> {% if 'ct_missing' in check.flags %}Missing (fallback used){% else %}OK{% endif %}
 </p>
 <table style="font-size: 0.9em;">
@@ -266,6 +268,9 @@
         {% endfor %}
     </tbody>
 </table>
+{% endfor %}
+
+{% endwith %}
 {% endfor %}
 
 <hr style="margin: 40px 0;">
