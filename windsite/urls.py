@@ -14,6 +14,7 @@ urlpatterns = [
     path('turbines/', include('turbines.urls')),
     path('climate/', include('climate.urls')),
     path('assessments/', include('assessments.urls')),
+    path('ingest/', include('ingest.urls')),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Preview Site Package{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Preview Site Package</h1>
+
+    <div class="alert alert-info" role="alert">
+        <strong>Screening Disclaimer:</strong> This is an IEC 61400-1-inspired screening tool, not a certified assessment. User-editable class envelope, not IEC Table 1 classes.
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Project</h6>
+                    <h5 class="card-title">{{ package.project.name }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Site</h6>
+                    <h5 class="card-title">{{ package.site.name }}</h5>
+                    <p class="small">Lon: {{ package.site.center_lon_deg|floatformat:2 }}°, Lat: {{ package.site.center_lat_deg|floatformat:2 }}°</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Turbines</h6>
+                    <h5 class="card-title">{{ turbine_count }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Models</h6>
+                    <h5 class="card-title">{{ model_count }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Climates</h6>
+                    <h5 class="card-title">{{ climate_count }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gaps Summary -->
+    {% if gaps %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Validation Gaps ({{ gaps|length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-2">
+                {% if gap_counts.run_blocker > 0 %}
+                <span class="badge bg-danger">{{ gap_counts.run_blocker }} Run Blocker</span>
+                {% endif %}
+                {% if gap_counts.flag > 0 %}
+                <span class="badge bg-warning text-dark">{{ gap_counts.flag }} Flag</span>
+                {% endif %}
+                {% if gap_counts.store_only_missing > 0 %}
+                <span class="badge bg-info">{{ gap_counts.store_only_missing }} Store Only Missing</span>
+                {% endif %}
+                {% if gap_counts.unmapped_column > 0 %}
+                <span class="badge bg-secondary">{{ gap_counts.unmapped_column }} Unmapped Column</span>
+                {% endif %}
+                {% if gap_counts.invalid > 0 %}
+                <span class="badge bg-danger">{{ gap_counts.invalid }} Invalid</span>
+                {% endif %}
+            </div>
+
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Path</th>
+                        <th>Code</th>
+                        <th>Message</th>
+                        <th>Source Hint</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for gap in gaps %}
+                    <tr>
+                        <td>
+                            {% if gap.severity == 'run_blocker' %}
+                            <span class="badge bg-danger">🔴 Blocker</span>
+                            {% elif gap.severity == 'flag' %}
+                            <span class="badge bg-warning text-dark">🟡 Flag</span>
+                            {% elif gap.severity == 'store_only_missing' %}
+                            <span class="badge bg-info">🔵 Missing</span>
+                            {% elif gap.severity == 'unmapped_column' %}
+                            <span class="badge bg-secondary">⚪ Unmapped</span>
+                            {% else %}
+                            <span class="badge bg-danger">Invalid</span>
+                            {% endif %}
+                        </td>
+                        <td><code>{{ gap.path }}</code></td>
+                        <td><code>{{ gap.code }}</code></td>
+                        <td>{{ gap.message }}</td>
+                        <td>{{ gap.source_hint }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Turbines Table -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Turbines ({{ turbine_count }})</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Role</th>
+                        <th>X (m)</th>
+                        <th>Y (m)</th>
+                        <th>Z Base (m)</th>
+                        <th>Hub Height (m)</th>
+                        <th>Rotor D (m)</th>
+                        <th>Model</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for turbine in package.layout.turbines %}
+                    <tr>
+                        <td><strong>{{ turbine.local_id }}</strong></td>
+                        <td>
+                            {% if turbine.role == 'new_scored' %}
+                            <span class="badge bg-success">New (scored)</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Existing (wake)</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ turbine.x_m|floatformat:1 }}</td>
+                        <td>{{ turbine.y_m|floatformat:1 }}</td>
+                        <td>{{ turbine.z_base_m|floatformat:1 }}</td>
+                        <td>{{ turbine.hub_height_m|floatformat:1 }}</td>
+                        <td>{{ turbine.rotor_d_m|floatformat:1 }}</td>
+                        <td>{{ turbine.model_name }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- WTG Models -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>WTG Models ({{ model_count }})</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Rotor D (m)</th>
+                        <th>Hub Height (m)</th>
+                        <th>V_in (m/s)</th>
+                        <th>V_rated (m/s)</th>
+                        <th>V_out (m/s)</th>
+                        <th>Class</th>
+                        <th>TI Category</th>
+                        <th>Power Points</th>
+                        <th>Ct Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model in package.wtg_models %}
+                    <tr>
+                        <td><strong>{{ model.name }}</strong></td>
+                        <td>{{ model.rotor_d_m|floatformat:1 }}</td>
+                        <td>{{ model.hub_height_default_m|floatformat:1 }}</td>
+                        <td>{{ model.v_in_mps|floatformat:1 }}</td>
+                        <td>{{ model.v_rated_mps|floatformat:1 }}</td>
+                        <td>{{ model.v_out_mps|floatformat:1 }}</td>
+                        <td>{{ model.default_speed_class|default:"—" }}</td>
+                        <td>{{ model.default_ti_category|default:"—" }}</td>
+                        <td>{{ model.power_curve|length }}</td>
+                        <td>
+                            {% if model.ct_curve %}
+                            {{ model.ct_curve|length }}
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Missing</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Hub Climates -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Hub Climates ({{ climate_count }})</h5>
+        </div>
+        <div class="card-body">
+            {% for climate in package.hub_climates %}
+            <div class="mb-3">
+                <h6>{{ climate.name }}</h6>
+                <ul>
+                    <li>Period: {{ climate.period_hours|floatformat:0 }} hours</li>
+                    <li>Bin width: {{ climate.bin_width_mps|floatformat:1 }} m/s</li>
+                    <li>Density: {{ climate.rho_kgm3|floatformat:3 }} kg/m³</li>
+                    <li>V50: {{ climate.v50_mps|floatformat:1 }} m/s</li>
+                    {% if climate.shear_alpha %}
+                    <li>Shear alpha: {{ climate.shear_alpha|floatformat:2 }}</li>
+                    {% endif %}
+                    {% if climate.inflow_angle_deg %}
+                    <li>Inflow angle: {{ climate.inflow_angle_deg|floatformat:1 }}°</li>
+                    {% endif %}
+                    <li>TI bins: {{ climate.ti_bins|length }}</li>
+                    <li>Sector Weibull: {{ climate.sector_weibull|length }}</li>
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Commit Button -->
+    <div class="card">
+        <div class="card-body">
+            {% if can_commit %}
+            <form id="commit-form" method="post" action="{% url 'ingest:commit' session_id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-lg">Commit to Database</button>
+            </form>
+            {% else %}
+            <button class="btn btn-danger btn-lg" disabled title="Cannot commit due to run_blocker gaps">
+                Commit Blocked ({{ gap_counts.run_blocker }} blocker{{ gap_counts.run_blocker|pluralize }})
+            </button>
+            <p class="text-danger mt-2">Fix all run_blocker gaps before committing.</p>
+            {% endif %}
+
+            <div id="commit-status" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+{% if can_commit %}
+document.getElementById('commit-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const statusDiv = document.getElementById('commit-status');
+    statusDiv.innerHTML = '<div class="alert alert-info">Committing to database...</div>';
+
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            statusDiv.innerHTML = `<div class="alert alert-success">
+                Successfully committed! Created ${data.turbine_count} turbine(s). Redirecting...
+            </div>`;
+            setTimeout(() => {
+                window.location.href = data.redirect_url;
+            }, 2000);
+        } else {
+            statusDiv.innerHTML = `<div class="alert alert-danger">Commit failed: ${data.message}</div>`;
+        }
+    })
+    .catch(error => {
+        statusDiv.innerHTML = `<div class="alert alert-danger">Commit failed: ${error}</div>`;
+    });
+});
+{% endif %}
+</script>
+{% endblock %}

@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'turbines',
     'climate',
     'assessments',
+    'ingest',
 ]
 
 MIDDLEWARE = [
@@ -108,3 +109,10 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}

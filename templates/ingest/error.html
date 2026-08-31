@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Error{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Error</h4>
+        <p>{{ message }}</p>
+        <hr>
+        <a href="{% url 'ingest:upload_page' %}" class="btn btn-primary">Back to Upload</a>
+    </div>
+</div>
+{% endblock %}
