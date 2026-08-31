@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit {{ hub_climate.name }}{% endblock %}
+
+{% block content %}
+<h1>Edit Hub Climate</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <h3>Climate Parameters</h3>
+    {% for field in form %}
+        <div class="mb-3">
+            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+                <small class="form-text text-muted">{{ field.help_text }}</small>
+            {% endif %}
+            {% if field.errors %}
+                <div class="text-danger">{{ field.errors }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <h3 class="mt-4">TI Bins</h3>
+    <p class="text-muted">Use CSV import for easier management of many bins.</p>
+    {{ formset.management_form }}
+    <div id="ti-bin-formset">
+        {% for bin_form in formset %}
+            <div class="row mb-2">
+                {{ bin_form.id }}
+                <div class="col-md-2">{{ bin_form.v_center_mps }}</div>
+                <div class="col-md-2">{{ bin_form.hours }}</div>
+                <div class="col-md-3">{{ bin_form.mean_sigma_mps }}</div>
+                <div class="col-md-3">{{ bin_form.std_sigma_mps }}</div>
+                <div class="col-md-2">{{ bin_form.DELETE }} Delete</div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Save</button>
+    <a href="{% url 'climate:detail' pk=hub_climate.pk %}" class="btn btn-secondary mt-3">Cancel</a>
+</form>
+{% endblock %}

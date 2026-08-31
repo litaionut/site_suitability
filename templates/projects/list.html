@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Projects</h1>
+    <a href="{% url 'projects:create' %}" class="btn btn-primary">Create New Project</a>
+</div>
+
+{% if projects %}
+    <div class="list-group">
+        {% for project in projects %}
+            <a href="{% url 'projects:detail' uuid=project.uuid %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ project.name }}</h5>
+                    <small>{{ project.created_at|date:"Y-m-d H:i" }}</small>
+                </div>
+                {% if project.notes %}
+                    <p class="mb-1 text-muted">{{ project.notes|truncatewords:20 }}</p>
+                {% endif %}
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">No projects yet. Create one to get started.</p>
+{% endif %}
+{% endblock %}

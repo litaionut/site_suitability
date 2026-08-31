@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Import TI Bins - {{ hub_climate.name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'projects:detail' uuid=hub_climate.site.project.uuid %}">{{ hub_climate.site.project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sites:detail' pk=hub_climate.site.pk %}">{{ hub_climate.site.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'climate:detail' pk=hub_climate.pk %}">{{ hub_climate.name }}</a></li>
+        <li class="breadcrumb-item active">Import TI Bins</li>
+    </ol>
+</nav>
+
+<h1>Import TI Bins from CSV</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">CSV Format</h5>
+        <p>The CSV file must be UTF-8 encoded with a header row containing the following columns:</p>
+        <ul>
+            <li><strong>v_center_mps</strong> (required): Bin center wind speed (m/s)</li>
+            <li><strong>hours</strong> (required): Hours in this bin</li>
+            <li><strong>mean_sigma_mps</strong> (required): Mean standard deviation (m/s)</li>
+            <li><strong>std_sigma_mps</strong> (optional): Standard deviation of sigma (m/s). May be empty (COV=0.3 will be flagged during assessment)</li>
+        </ul>
+        {% if has_existing_bins %}
+            <p class="text-warning"><strong>Warning:</strong> This hub climate already has TI bins. Check "Replace existing bins" to overwrite them.</p>
+        {% endif %}
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="csv_file" class="form-label">Select CSV File</label>
+        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+    </div>
+    {% if has_existing_bins %}
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="replace_existing" name="replace_existing">
+            <label class="form-check-label" for="replace_existing">
+                Replace existing bins (will delete {{ hub_climate.ti_bins.count }} existing bins)
+            </label>
+        </div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary">Import</button>
+    <a href="{% url 'climate:detail' pk=hub_climate.pk %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

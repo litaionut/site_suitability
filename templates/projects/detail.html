@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ project.name }}</h1>
+    <a href="{% url 'projects:edit' uuid=project.uuid %}" class="btn btn-secondary">Edit Project</a>
+</div>
+
+{% if project.notes %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="card-subtitle mb-2 text-muted">Notes</h6>
+            <p class="card-text">{{ project.notes }}</p>
+        </div>
+    </div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Sites</h2>
+    <a href="{% url 'sites:create' project_uuid=project.uuid %}" class="btn btn-primary">Add Site</a>
+</div>
+
+{% if sites %}
+    <div class="list-group">
+        {% for site in sites %}
+            <a href="{% url 'sites:detail' pk=site.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ site.name }}</h5>
+                    <small>EPSG:{{ site.crs_epsg }}</small>
+                </div>
+                <p class="mb-1">
+                    <span class="badge bg-secondary">{{ site.center_lat_deg|floatformat:4 }}°, {{ site.center_lon_deg|floatformat:4 }}°</span>
+                    <span class="badge bg-info text-dark">{{ site.get_default_complexity_display }}</span>
+                </p>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted">No sites yet. Add one to begin.</p>
+{% endif %}
+{% endblock %}
