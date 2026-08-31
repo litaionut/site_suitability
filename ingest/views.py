@@ -316,10 +316,45 @@ def commit_package(request, session_id):
             # Create AssessmentTurbine for each new_scored turbine and run assessment
             assessment_results = []
             for turbine in layout.turbines.filter(role=Turbine.ROLE_NEW_SCORED):
+                # Resolve Vref, Iref, Vave from turbine's effective class and ClassEnvelope
+                speed_class = turbine.get_speed_class() or 'II'
+                ti_category = turbine.get_ti_category() or 'B'
+                
+                # Get Vref based on speed class
+                vref_map = {
+                    'I': class_envelope.vref_i,
+                    'II': class_envelope.vref_ii,
+                    'III': class_envelope.vref_iii,
+                    'S': class_envelope.vref_ii  # Default to II for S
+                }
+                resolved_vref = vref_map.get(speed_class, class_envelope.vref_ii)
+                
+                # Get Iref based on TI category
+                iref_map = {
+                    'A+': class_envelope.iref_a_plus,
+                    'A': class_envelope.iref_a,
+                    'B': class_envelope.iref_b,
+                    'C': class_envelope.iref_c,
+                    'S': class_envelope.iref_b  # Default to B for S
+                }
+                resolved_iref = iref_map.get(ti_category, class_envelope.iref_b)
+                
+                # Calculate Vave
+                resolved_vave = resolved_vref * class_envelope.vave_over_vref
+                
+                # CCT based on site complexity
+                cct = 1.15 if site.default_complexity == 'complex' else 1.0
+                
                 assessment_turbine = AssessmentTurbine.objects.create(
                     assessment=assessment,
                     turbine=turbine,
-                    hub_climate=first_hub_climate
+                    hub_climate=first_hub_climate,
+                    resolved_vref_mps=resolved_vref,
+                    resolved_iref=resolved_iref,
+                    resolved_vave_mps=resolved_vave,
+                    cct=cct,
+                    apply_density_to_v50=False,
+                    wohler_exponents=[4, 10]
                 )
                 
                 try:
