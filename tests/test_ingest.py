@@ -125,17 +125,39 @@ class TestIngestRoundTrip(TestCase):
         self.assertEqual(ti_bins.count(), 25)  # 25 bins from 1-25 m/s
 
         # Run Slice 0+1 assessment
+        # Build input_data from the hub_climate
+        ti_bins_data = []
+        for ti_bin in hub_climate.ti_bins.all().order_by('v_center_mps'):
+            ti_bins_data.append({
+                'v_center': ti_bin.v_center_mps,
+                'hours': ti_bin.hours,
+                'mean_sigma': ti_bin.mean_sigma_mps,
+                'std_sigma': ti_bin.std_sigma_mps
+            })
+
+        input_data = {
+            'edition': 'ed4',
+            'vref': class_envelope.vref_ii,
+            'iref': class_envelope.iref_b,
+            'vave': class_envelope.vref_ii * class_envelope.vave_over_vref,
+            'v50': hub_climate.v50_mps,
+            'rho': hub_climate.rho_kgm3,
+            'apply_density_to_v50': False,
+            'complexity': site.default_complexity,
+            'bin_width': hub_climate.bin_width_mps,
+            'period_hours': hub_climate.period_hours,
+            'ti_bins': ti_bins_data,
+            'shear_alpha': hub_climate.shear_alpha,
+            'inflow_angle_deg': hub_climate.inflow_angle_deg,
+            'wohler_exponents': [4, 10]
+        }
+
         try:
-            result = run_assessment(
-                project=project,
-                site=site,
-                layout=layout,
-                hub_climate=hub_climate,
-                complexity=site.default_complexity
-            )
+            result = run_assessment(input_data)
             self.assertIsNotNone(result)
             self.assertIn('overall', result)
             # Assessment should complete without errors
+            self.assertNotIn('error', result)
         except Exception as e:
             self.fail(f"Assessment failed: {e}")
 
@@ -376,26 +398,26 @@ class TestExistingGoldens(TestCase):
         This test imports and runs existing golden tests to verify they still pass.
         """
         # Import existing golden tests
-        from tests.test_engine import TestAssessmentEngine
-        from tests.test_slice1_ieff import TestSlice1IeffCalculation
+        from tests.test_engine import TestGoldenPass, TestGoldenFail
+        from tests.test_slice1_ieff import TestGoldenIeffPass, TestGoldenIeffFail
 
         # Run Slice 0 golden tests
-        slice0_test = TestAssessmentEngine()
-        slice0_test.setUp()
+        slice0_pass_test = TestGoldenPass()
+        slice0_fail_test = TestGoldenFail()
 
         try:
-            slice0_test.test_golden_pass_t1()
-            slice0_test.test_golden_fail_t1()
+            slice0_pass_test.test_golden_pass_t1()
+            slice0_fail_test.test_golden_fail_t1()
         except Exception as e:
             self.fail(f"Slice 0 golden tests failed: {e}")
 
         # Run Slice 1 golden tests
-        slice1_test = TestSlice1IeffCalculation()
-        slice1_test.setUp()
+        slice1_pass_test = TestGoldenIeffPass()
+        slice1_fail_test = TestGoldenIeffFail()
 
         try:
-            slice1_test.test_golden_ieff_pass()
-            slice1_test.test_golden_ieff_fail()
+            slice1_pass_test.test_golden_ieff_pass()
+            slice1_fail_test.test_golden_ieff_fail()
         except Exception as e:
             self.fail(f"Slice 1 golden tests failed: {e}")
 
