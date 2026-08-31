@@ -70,23 +70,26 @@ class TestIngestRoundTrip(TestCase):
         self.assertIsNotNone(project)
 
         class_envelope = ClassEnvelope.objects.get(project=project)
-        self.assertEqual(class_envelope.vref_ii, 42.5)
-        self.assertEqual(class_envelope.iref_b, 0.14)
+        # Class envelope was null in package, so should use Django defaults
+        self.assertEqual(class_envelope.vref_ii, 42.5)  # Django default
+        self.assertEqual(class_envelope.iref_b, 0.14)   # Django default
 
         site = Site.objects.get(project=project)
-        self.assertEqual(site.center_lon_deg, 45.0)
-        self.assertEqual(site.center_lat_deg, 9.0)
+        # Verify correct coordinates: lon=9, lat=45 (not 45/9)
+        self.assertEqual(site.center_lon_deg, 9.0)
+        self.assertEqual(site.center_lat_deg, 45.0)
         self.assertEqual(site.default_complexity, 'simple')
 
         layout = Layout.objects.get(site=site)
         self.assertEqual(layout.turbines.count(), 2)
 
-        # Verify T01 turbine
+        # Verify T01 turbine with correct values
         t01 = Turbine.objects.get(layout=layout, local_id='T01')
         self.assertEqual(t01.role, 'new_scored')
         self.assertEqual(t01.x_m, 0.0)
         self.assertEqual(t01.y_m, 0.0)
-        self.assertEqual(t01.hub_height_m, 120.0)
+        self.assertEqual(t01.z_base_m, 650.0)  # Not 100
+        self.assertEqual(t01.hub_height_m, 100.0)  # Not 120
         self.assertEqual(t01.rotor_d_m, 120.0)
 
         # Verify E01 turbine (existing wake source at 0, 960)
@@ -94,20 +97,30 @@ class TestIngestRoundTrip(TestCase):
         self.assertEqual(e01.role, 'existing_wake_source')
         self.assertEqual(e01.x_m, 0.0)
         self.assertEqual(e01.y_m, 960.0)  # 8D spacing (960m / 120m = 8D)
+        self.assertEqual(e01.z_base_m, 650.0)  # Not 100
+        self.assertEqual(e01.hub_height_m, 100.0)  # Not 120
 
-        # Verify WtgModel N123-120 with Ct curve
+        # Verify WtgModel N123-120 with golden Ct curve (not sparse)
         wtg_model = WtgModel.objects.get(name='N123-120')
         self.assertEqual(wtg_model.rotor_d_m, 120.0)
+        self.assertEqual(wtg_model.hub_height_default_m, 100.0)  # Not 120
         self.assertEqual(wtg_model.v_in_mps, 3.0)
         self.assertEqual(wtg_model.v_rated_mps, 12.0)
         self.assertEqual(wtg_model.v_out_mps, 25.0)
+        # Speed class and TI category were null, so defaults used
         self.assertEqual(wtg_model.default_speed_class, 'II')
         self.assertEqual(wtg_model.default_ti_category, 'B')
 
-        # Verify Ct curve exists
+        # Verify golden Ct curve exists (23 points from 3-25 m/s)
         ct_points = CtCurvePoint.objects.filter(wtg_model=wtg_model).order_by('v_mps')
-        self.assertGreater(ct_points.count(), 0)
+        self.assertEqual(ct_points.count(), 23)  # Full golden curve, not sparse
         self.assertIn(wtg_model.ct_status, ['ok', 'suspect'])  # Should not be 'missing'
+        
+        # Verify some golden Ct values
+        ct_12 = ct_points.get(v_mps=12.0)
+        self.assertAlmostEqual(ct_12.ct, 0.80, places=2)
+        ct_15 = ct_points.get(v_mps=15.0)
+        self.assertAlmostEqual(ct_15.ct, 0.6269, places=4)
 
         # Verify power curve
         power_points = PowerCurvePoint.objects.filter(wtg_model=wtg_model)
@@ -124,42 +137,31 @@ class TestIngestRoundTrip(TestCase):
         ti_bins = TiBin.objects.filter(hub_climate=hub_climate)
         self.assertEqual(ti_bins.count(), 25)  # 25 bins from 1-25 m/s
 
-        # Run Slice 0+1 assessment
-        # Build input_data from the hub_climate
-        ti_bins_data = []
-        for ti_bin in hub_climate.ti_bins.all().order_by('v_center_mps'):
-            ti_bins_data.append({
-                'v_center': ti_bin.v_center_mps,
-                'hours': ti_bin.hours,
-                'mean_sigma': ti_bin.mean_sigma_mps,
-                'std_sigma': ti_bin.std_sigma_mps
-            })
-
-        input_data = {
-            'edition': 'ed4',
-            'vref': class_envelope.vref_ii,
-            'iref': class_envelope.iref_b,
-            'vave': class_envelope.vref_ii * class_envelope.vave_over_vref,
-            'v50': hub_climate.v50_mps,
-            'rho': hub_climate.rho_kgm3,
-            'apply_density_to_v50': False,
-            'complexity': site.default_complexity,
-            'bin_width': hub_climate.bin_width_mps,
-            'period_hours': hub_climate.period_hours,
-            'ti_bins': ti_bins_data,
-            'shear_alpha': hub_climate.shear_alpha,
-            'inflow_angle_deg': hub_climate.inflow_angle_deg,
-            'wohler_exponents': [4, 10]
-        }
-
-        try:
-            result = run_assessment(input_data)
-            self.assertIsNotNone(result)
-            self.assertIn('overall', result)
-            # Assessment should complete without errors
-            self.assertNotIn('error', result)
-        except Exception as e:
-            self.fail(f"Assessment failed: {e}")
+        # Verify Assessment was created and run
+        from assessments.models import Assessment, AssessmentTurbine, CheckResult
+        
+        assessment = Assessment.objects.get(layout=layout)
+        self.assertIsNotNone(assessment)
+        self.assertEqual(assessment.complexity, 'simple')
+        
+        # Verify AssessmentTurbine for T01 (new_scored)
+        assessment_turbines = AssessmentTurbine.objects.filter(assessment=assessment)
+        self.assertEqual(assessment_turbines.count(), 1)  # Only T01, not E01
+        
+        assessment_turbine = assessment_turbines.first()
+        self.assertEqual(assessment_turbine.turbine.local_id, 'T01')
+        
+        # Verify CheckResults exist (including turbulence_ieff from Slice 1)
+        check_results = CheckResult.objects.filter(assessment_turbine=assessment_turbine)
+        self.assertGreater(check_results.count(), 0)
+        
+        # Verify turbulence_ieff check ran
+        ieff_check = check_results.filter(check_id='turbulence_ieff').first()
+        self.assertIsNotNone(ieff_check, "turbulence_ieff check should have run")
+        self.assertIn(ieff_check.status, ['Pass', 'Warn', 'Fail'])
+        
+        # Verify overall assessment status
+        self.assertIsNotNone(assessment_turbine.overall_status)
 
 
 @pytest.mark.django_db
@@ -179,7 +181,7 @@ class TestMissingCtHandling(TestCase):
         - Verify NO 7/V rows in CtCurvePoint table for that model
         """
         package_data = {
-            'package_version': 'site-package-v1',
+            'schema_id': 'site-package-v1',
             'project': {'name': 'Missing Ct Test'},
             'site': {
                 'name': 'Test Site',
@@ -208,8 +210,8 @@ class TestMissingCtHandling(TestCase):
                 'v_in_mps': 3.0,
                 'v_rated_mps': 12.0,
                 'v_out_mps': 25.0,
-                'default_speed_class': 'II',
-                'default_ti_category': 'B',
+                'default_speed_class': None,
+                'default_ti_category': None,
                 'power_curve': [
                     {'v_mps': 3.0, 'p_kw': 0.0},
                     {'v_mps': 12.0, 'p_kw': 3000.0},
@@ -291,7 +293,7 @@ class TestDuplicateLocalId(TestCase):
         - Verify NO objects persisted (rollback)
         """
         package_data = {
-            'package_version': 'site-package-v1',
+            'schema_id': 'site-package-v1',
             'project': {'name': 'Duplicate ID Test'},
             'site': {
                 'name': 'Test Site',
@@ -332,6 +334,8 @@ class TestDuplicateLocalId(TestCase):
                 'v_in_mps': 3.0,
                 'v_rated_mps': 12.0,
                 'v_out_mps': 25.0,
+                'default_speed_class': None,
+                'default_ti_category': None,
                 'power_curve': [
                     {'v_mps': 3.0, 'p_kw': 0.0},
                     {'v_mps': 12.0, 'p_kw': 3000.0}

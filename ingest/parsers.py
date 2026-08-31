@@ -59,10 +59,10 @@ class ExcelParser(BaseParser):
             raise ParseError(f"Failed to load Excel file: {e}")
 
         package = {
-            'package_version': 'site-package-v1',
+            'schema_id': 'site-package-v1',
             'project': {},
             'site': {},
-            'class_envelope': {},
+            'class_envelope': None,
             'layout': {'turbines': []},
             'wtg_models': [],
             'hub_climates': [],
@@ -229,9 +229,14 @@ class ExcelParser(BaseParser):
                         model['default_ti_category'] = ti
 
             if model.get('name'):
-                # Initialize empty curves
+                # Initialize empty curves - set to null if not provided
                 model['power_curve'] = []
                 model['ct_curve'] = []
+                # Don't default speed_class or ti_category silently
+                if 'default_speed_class' not in model:
+                    model['default_speed_class'] = None
+                if 'default_ti_category' not in model:
+                    model['default_ti_category'] = None
                 package['wtg_models'].append(model)
 
     def _parse_power_curve_sheet(self, sheets: Dict[str, Any], package: Dict[str, Any]):
@@ -313,13 +318,13 @@ class ExcelParser(BaseParser):
         if not sheet:
             return
 
-        # Read key-value pairs
+        # Read key-value pairs - do not invent defaults
         climate = {
             'name': 'Imported Climate',
             'turbine_local_id': None,
-            'period_hours': 8760.0,
-            'bin_width_mps': 1.0,
-            'rho_kgm3': 1.225,
+            'period_hours': None,
+            'bin_width_mps': None,
+            'rho_kgm3': None,
             'ti_bins': [],
             'sector_weibull': []
         }
@@ -427,14 +432,20 @@ class CSVParser(BaseParser):
     def parse(self, file_obj) -> Dict[str, Any]:
         """Parse CSV file - assume turbines layout."""
         package = {
-            'package_version': 'site-package-v1',
+            'schema_id': 'site-package-v1',
             'project': {'name': 'Imported Project'},
-            'site': {'name': 'Imported Site', 'center_lon_deg': 0.0, 'center_lat_deg': 0.0, 'default_complexity': 'simple'},
-            'class_envelope': {},
+            'site': {'name': 'Imported Site', 'center_lon_deg': None, 'center_lat_deg': None, 'default_complexity': 'simple'},
+            'class_envelope': None,
             'layout': {'name': 'Imported Layout', 'turbines': []},
             'wtg_models': [],
             'hub_climates': [],
-            'gaps': []
+            'gaps': [{
+                'severity': 'run_blocker',
+                'path': 'site.coordinates',
+                'code': 'missing_coordinates',
+                'message': 'CSV does not contain site coordinates',
+                'source_hint': 'CSV'
+            }]
         }
 
         try:
@@ -473,16 +484,16 @@ class HTMLParser(BaseParser):
     def parse(self, file_obj) -> Dict[str, Any]:
         """Parse HTML file."""
         package = {
-            'package_version': 'site-package-v1',
+            'schema_id': 'site-package-v1',
             'project': {'name': 'Imported from HTML Report'},
-            'site': {'name': 'Imported Site', 'center_lon_deg': 0.0, 'center_lat_deg': 0.0, 'default_complexity': 'simple'},
-            'class_envelope': {},
+            'site': {'name': 'Imported Site', 'center_lon_deg': None, 'center_lat_deg': None, 'default_complexity': 'simple'},
+            'class_envelope': None,
             'layout': {'name': 'Imported Layout', 'turbines': []},
             'wtg_models': [],
             'hub_climates': [],
             'gaps': [{
                 'severity': 'run_blocker',
-                'path': 'site',
+                'path': 'site.coordinates',
                 'code': 'missing_coordinates',
                 'message': 'HTML reports often lack coordinates - manual entry required',
                 'source_hint': 'HTML parsing limitation'
@@ -560,10 +571,10 @@ def parse_file(file_obj, filename: str) -> Dict[str, Any]:
 def _parse_zip(file_obj) -> Dict[str, Any]:
     """Parse ZIP file containing multiple CSVs."""
     package = {
-        'package_version': 'site-package-v1',
+        'schema_id': 'site-package-v1',
         'project': {'name': 'Imported Project'},
         'site': {},
-        'class_envelope': {},
+        'class_envelope': None,
         'layout': {'turbines': []},
         'wtg_models': [],
         'hub_climates': [],

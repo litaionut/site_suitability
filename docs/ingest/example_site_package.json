@@ -1,25 +1,16 @@
 {
-  "package_version": "site-package-v1",
+  "schema_id": "site-package-v1",
   "project": {
     "name": "Synthetic Ridge Wind Farm",
     "notes": "Example site package for testing - Synthetic Ridge with 8D turbine spacing"
   },
   "site": {
     "name": "Synthetic Ridge Site",
-    "center_lon_deg": 45.0,
-    "center_lat_deg": 9.0,
+    "center_lon_deg": 9.0,
+    "center_lat_deg": 45.0,
     "default_complexity": "simple"
   },
-  "class_envelope": {
-    "vref_i": 50.0,
-    "vref_ii": 42.5,
-    "vref_iii": 37.5,
-    "iref_a_plus": 0.18,
-    "iref_a": 0.16,
-    "iref_b": 0.14,
-    "iref_c": 0.12,
-    "vave_over_vref": 0.2
-  },
+  "class_envelope": null,
   "layout": {
     "name": "Main Layout",
     "turbines": [
@@ -28,8 +19,8 @@
         "role": "new_scored",
         "x_m": 0.0,
         "y_m": 0.0,
-        "z_base_m": 100.0,
-        "hub_height_m": 120.0,
+        "z_base_m": 650.0,
+        "hub_height_m": 100.0,
         "rotor_d_m": 120.0,
         "model_name": "N123-120"
       },
@@ -38,8 +29,8 @@
         "role": "existing_wake_source",
         "x_m": 0.0,
         "y_m": 960.0,
-        "z_base_m": 100.0,
-        "hub_height_m": 120.0,
+        "z_base_m": 650.0,
+        "hub_height_m": 100.0,
         "rotor_d_m": 120.0,
         "model_name": "N123-120"
       }
@@ -49,12 +40,12 @@
     {
       "name": "N123-120",
       "rotor_d_m": 120.0,
-      "hub_height_default_m": 120.0,
+      "hub_height_default_m": 100.0,
       "v_in_mps": 3.0,
       "v_rated_mps": 12.0,
       "v_out_mps": 25.0,
-      "default_speed_class": "II",
-      "default_ti_category": "B",
+      "default_speed_class": null,
+      "default_ti_category": null,
       "power_curve": [
         {"v_mps": 0.0, "p_kw": 0.0},
         {"v_mps": 3.0, "p_kw": 0.0},
@@ -75,12 +66,29 @@
         {"v_mps": 26.0, "p_kw": 0.0}
       ],
       "ct_curve": [
-        {"v_mps": 0.0, "ct": 0.0},
-        {"v_mps": 3.0, "ct": 0.0},
+        {"v_mps": 3.0, "ct": 0.80},
         {"v_mps": 4.0, "ct": 0.80},
+        {"v_mps": 5.0, "ct": 0.80},
+        {"v_mps": 6.0, "ct": 0.80},
+        {"v_mps": 7.0, "ct": 0.80},
+        {"v_mps": 8.0, "ct": 0.80},
+        {"v_mps": 9.0, "ct": 0.80},
+        {"v_mps": 10.0, "ct": 0.80},
+        {"v_mps": 11.0, "ct": 0.80},
         {"v_mps": 12.0, "ct": 0.80},
-        {"v_mps": 25.0, "ct": 0.05},
-        {"v_mps": 26.0, "ct": 0.0}
+        {"v_mps": 13.0, "ct": 0.7423},
+        {"v_mps": 14.0, "ct": 0.6846},
+        {"v_mps": 15.0, "ct": 0.6269},
+        {"v_mps": 16.0, "ct": 0.5692},
+        {"v_mps": 17.0, "ct": 0.5115},
+        {"v_mps": 18.0, "ct": 0.4538},
+        {"v_mps": 19.0, "ct": 0.3962},
+        {"v_mps": 20.0, "ct": 0.3385},
+        {"v_mps": 21.0, "ct": 0.2808},
+        {"v_mps": 22.0, "ct": 0.2231},
+        {"v_mps": 23.0, "ct": 0.1654},
+        {"v_mps": 24.0, "ct": 0.1077},
+        {"v_mps": 25.0, "ct": 0.05}
       ]
     }
   ],

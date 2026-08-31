@@ -54,14 +54,14 @@ class SitePackageSerializer:
         return not any(g.severity == Gap.SEVERITY_RUN_BLOCKER for g in self.gaps)
 
     def _validate_version(self):
-        """Validate package version."""
-        version = self.data.get('package_version')
+        """Validate package version (schema_id or package_version alias)."""
+        version = self.data.get('schema_id') or self.data.get('package_version')
         if version != 'site-package-v1':
             self.gaps.append(Gap(
                 Gap.SEVERITY_RUN_BLOCKER,
-                'package_version',
+                'schema_id',
                 'invalid_version',
-                f'Package version must be "site-package-v1", got "{version}"',
+                f'Schema ID must be "site-package-v1", got "{version}"',
                 ''
             ))
 
@@ -129,12 +129,13 @@ class SitePackageSerializer:
 
     def _validate_class_envelope(self):
         """Validate class envelope data (optional with defaults)."""
-        if 'class_envelope' not in self.data:
+        class_env = self.data.get('class_envelope')
+        if class_env is None or not class_env:
             self.gaps.append(Gap(
                 Gap.SEVERITY_FLAG,
                 'class_envelope',
-                'missing_class_envelope',
-                'Class envelope not provided, using Django defaults',
+                'class_envelope_django_defaults',
+                'Class envelope null, using Django defaults',
                 ''
             ))
 
@@ -267,6 +268,15 @@ class SitePackageSerializer:
                     f'Invalid speed class "{speed_class}", must be one of: {", ".join(valid_classes)}',
                     ''
                 ))
+        else:
+            # Flag when defaulting speed class
+            self.gaps.append(Gap(
+                Gap.SEVERITY_FLAG,
+                f'{path_prefix}.default_speed_class',
+                'speed_class_defaulted',
+                f'Speed class not specified for model {model.get("name")}, will use Django default (II)',
+                ''
+            ))
 
         # Validate TI category
         ti_category = model.get('default_ti_category')
@@ -280,6 +290,15 @@ class SitePackageSerializer:
                     f'Invalid TI category "{ti_category}", must be one of: {", ".join(valid_categories)}',
                     ''
                 ))
+        else:
+            # Flag when defaulting TI category
+            self.gaps.append(Gap(
+                Gap.SEVERITY_FLAG,
+                f'{path_prefix}.default_ti_category',
+                'ti_category_defaulted',
+                f'TI category not specified for model {model.get("name")}, will use Django default (B)',
+                ''
+            ))
 
         # Check Ct curve
         ct_curve = model.get('ct_curve', [])
@@ -292,14 +311,14 @@ class SitePackageSerializer:
                 ''
             ))
 
-        # Validate power curve
+        # Validate power curve - missing is store_only not run_blocker
         power_curve = model.get('power_curve', [])
         if not power_curve:
             self.gaps.append(Gap(
-                Gap.SEVERITY_RUN_BLOCKER,
+                Gap.SEVERITY_STORE_ONLY_MISSING,
                 f'{path_prefix}.power_curve',
                 'missing_power_curve',
-                f'Power curve is required for model {model.get("name")}',
+                f'Power curve missing for model {model.get("name")}',
                 ''
             ))
 

@@ -15,6 +15,8 @@ from projects.models import Project, ClassEnvelope
 from sites.models import Site
 from turbines.models import Layout, Turbine, WtgModel, PowerCurvePoint, CtCurvePoint
 from climate.models import HubClimate, TiBin, SectorWeibull
+from assessments.models import Assessment, AssessmentTurbine
+from assessments.services import run_assessment_for_turbine
 
 
 def upload_page(request):
@@ -137,19 +139,23 @@ def commit_package(request, session_id):
                 notes=project_data.get('notes', '')
             )
 
-            # Create ClassEnvelope
-            class_env_data = package_data.get('class_envelope', {})
-            class_envelope = ClassEnvelope.objects.create(
-                project=project,
-                vref_i=class_env_data.get('vref_i', 50.0),
-                vref_ii=class_env_data.get('vref_ii', 42.5),
-                vref_iii=class_env_data.get('vref_iii', 37.5),
-                iref_a_plus=class_env_data.get('iref_a_plus', 0.18),
-                iref_a=class_env_data.get('iref_a', 0.16),
-                iref_b=class_env_data.get('iref_b', 0.14),
-                iref_c=class_env_data.get('iref_c', 0.12),
-                vave_over_vref=class_env_data.get('vave_over_vref', 0.2)
-            )
+            # Create ClassEnvelope (Django defaults if null)
+            class_env_data = package_data.get('class_envelope')
+            if class_env_data:
+                class_envelope = ClassEnvelope.objects.create(
+                    project=project,
+                    vref_i=class_env_data.get('vref_i', 50.0),
+                    vref_ii=class_env_data.get('vref_ii', 42.5),
+                    vref_iii=class_env_data.get('vref_iii', 37.5),
+                    iref_a_plus=class_env_data.get('iref_a_plus', 0.18),
+                    iref_a=class_env_data.get('iref_a', 0.16),
+                    iref_b=class_env_data.get('iref_b', 0.14),
+                    iref_c=class_env_data.get('iref_c', 0.12),
+                    vave_over_vref=class_env_data.get('vave_over_vref', 0.2)
+                )
+            else:
+                # Use Django model defaults
+                class_envelope = ClassEnvelope.objects.create(project=project)
 
             # Create Site
             site_data = package_data.get('site', {})
@@ -173,6 +179,10 @@ def commit_package(request, session_id):
                 if existing_model:
                     wtg_model = existing_model
                 else:
+                    # Don't default speed_class or ti_category without explicit values
+                    speed_class = model_data.get('default_speed_class')
+                    ti_category = model_data.get('default_ti_category')
+                    
                     wtg_model = WtgModel.objects.create(
                         name=model_name,
                         rotor_d_m=model_data.get('rotor_d_m'),
@@ -180,8 +190,8 @@ def commit_package(request, session_id):
                         v_in_mps=model_data.get('v_in_mps'),
                         v_rated_mps=model_data.get('v_rated_mps'),
                         v_out_mps=model_data.get('v_out_mps'),
-                        default_speed_class=model_data.get('default_speed_class', 'II'),
-                        default_ti_category=model_data.get('default_ti_category', 'B'),
+                        default_speed_class=speed_class if speed_class else 'II',
+                        default_ti_category=ti_category if ti_category else 'B',
                         ct_status='missing' if not model_data.get('ct_curve') else 'ok'
                     )
 
@@ -242,13 +252,14 @@ def commit_package(request, session_id):
                         local_id=turbine_local_id
                     ).first()
 
+                # Use Django defaults for optional fields if not provided
                 hub_climate = HubClimate.objects.create(
                     site=site,
                     turbine=turbine,
                     name=climate_data.get('name', 'Imported Climate'),
-                    period_hours=climate_data.get('period_hours', 8760.0),
-                    bin_width_mps=climate_data.get('bin_width_mps', 1.0),
-                    rho_kgm3=climate_data.get('rho_kgm3', 1.225),
+                    period_hours=climate_data.get('period_hours') or 8760.0,
+                    bin_width_mps=climate_data.get('bin_width_mps') or 1.0,
+                    rho_kgm3=climate_data.get('rho_kgm3') or 1.225,
                     v50_mps=climate_data.get('v50_mps'),
                     shear_alpha=climate_data.get('shear_alpha'),
                     inflow_angle_deg=climate_data.get('inflow_angle_deg')
@@ -275,6 +286,37 @@ def commit_package(request, session_id):
                         k=sector_data.get('k')
                     )
 
+            # Run Slice 0+1 assessment for new_scored turbines
+            # Create Assessment
+            assessment = Assessment.objects.create(
+                layout=layout,
+                hub_climate=hub_climate,
+                complexity=site.default_complexity
+            )
+
+            # Create AssessmentTurbine for each new_scored turbine and run assessment
+            assessment_results = []
+            for turbine in layout.turbines.filter(role=Turbine.ROLE_NEW_SCORED):
+                assessment_turbine = AssessmentTurbine.objects.create(
+                    assessment=assessment,
+                    turbine=turbine,
+                    hub_climate=hub_climate
+                )
+                
+                try:
+                    # Run assessment to execute turbulence_ieff with persisted neighbors+Ct
+                    run_assessment_for_turbine(assessment_turbine)
+                    assessment_results.append({
+                        'turbine_id': turbine.local_id,
+                        'status': 'completed'
+                    })
+                except Exception as e:
+                    assessment_results.append({
+                        'turbine_id': turbine.local_id,
+                        'status': 'failed',
+                        'error': str(e)
+                    })
+
             # Clear cache
             cache.delete(cache_key)
 
@@ -284,7 +326,9 @@ def commit_package(request, session_id):
                 'site_id': site.id,
                 'layout_id': layout.id,
                 'turbine_count': layout.turbines.count(),
-                'redirect_url': f'/sites/{site.id}/'
+                'assessment_id': assessment.id,
+                'assessment_results': assessment_results,
+                'redirect_url': f'/assessments/{assessment.id}/'
             })
 
     except Exception as e:
