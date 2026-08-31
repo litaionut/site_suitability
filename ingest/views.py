@@ -6,6 +6,7 @@ import uuid
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.core.cache import cache
 
@@ -25,6 +26,7 @@ def upload_page(request):
 
 
 @require_http_methods(["POST"])
+@login_required
 def upload_file(request):
     """
     POST endpoint to upload and parse site package file.
@@ -103,6 +105,7 @@ def preview_package(request, session_id):
 
 
 @require_http_methods(["POST"])
+@login_required
 def commit_package(request, session_id):
     """
     POST endpoint to commit site package to database.
@@ -141,7 +144,31 @@ def commit_package(request, session_id):
 
             # Create ClassEnvelope (Django defaults if null)
             class_env_data = package_data.get('class_envelope')
+            class_envelope_used_defaults = False
+            
             if class_env_data:
+                # Check if any values are missing (using defaults)
+                default_keys = []
+                if 'vref_i' not in class_env_data or class_env_data.get('vref_i') is None:
+                    default_keys.append('vref_i')
+                if 'vref_ii' not in class_env_data or class_env_data.get('vref_ii') is None:
+                    default_keys.append('vref_ii')
+                if 'vref_iii' not in class_env_data or class_env_data.get('vref_iii') is None:
+                    default_keys.append('vref_iii')
+                if 'iref_a_plus' not in class_env_data or class_env_data.get('iref_a_plus') is None:
+                    default_keys.append('iref_a_plus')
+                if 'iref_a' not in class_env_data or class_env_data.get('iref_a') is None:
+                    default_keys.append('iref_a')
+                if 'iref_b' not in class_env_data or class_env_data.get('iref_b') is None:
+                    default_keys.append('iref_b')
+                if 'iref_c' not in class_env_data or class_env_data.get('iref_c') is None:
+                    default_keys.append('iref_c')
+                if 'vave_over_vref' not in class_env_data or class_env_data.get('vave_over_vref') is None:
+                    default_keys.append('vave_over_vref')
+                
+                if default_keys:
+                    class_envelope_used_defaults = True
+                
                 class_envelope = ClassEnvelope.objects.create(
                     project=project,
                     vref_i=class_env_data.get('vref_i', 50.0),
@@ -154,6 +181,8 @@ def commit_package(request, session_id):
                     vave_over_vref=class_env_data.get('vave_over_vref', 0.2)
                 )
             else:
+                # No class_envelope data provided, using all Django defaults
+                class_envelope_used_defaults = True
                 # Use Django model defaults
                 class_envelope = ClassEnvelope.objects.create(project=project)
 
@@ -302,7 +331,8 @@ def commit_package(request, session_id):
                 'iref_a': class_envelope.iref_a,
                 'iref_b': class_envelope.iref_b,
                 'iref_c': class_envelope.iref_c,
-                'vave_over_vref': class_envelope.vave_over_vref
+                'vave_over_vref': class_envelope.vave_over_vref,
+                'class_envelope_django_defaults': class_envelope_used_defaults
             }
             
             assessment = Assessment.objects.create(

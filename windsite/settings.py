@@ -116,3 +116,7 @@ CACHES = {
         'LOCATION': 'unique-snowflake',
     }
 }
+
+# Authentication
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'

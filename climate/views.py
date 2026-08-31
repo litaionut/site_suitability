@@ -5,12 +5,14 @@ import csv
 import io
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import HubClimate, TiBin
 from .forms import HubClimateForm, TiBinFormSet
 from sites.models import Site
 
 
+@login_required
 def hub_climate_create(request, site_pk):
     """Create a new hub climate for a site."""
     site = get_object_or_404(Site, pk=site_pk)
@@ -42,6 +44,7 @@ def hub_climate_detail(request, pk):
     })
 
 
+@login_required
 def hub_climate_edit(request, pk):
     """Edit an existing hub climate."""
     hub_climate = get_object_or_404(HubClimate, pk=pk)
@@ -65,6 +68,7 @@ def hub_climate_edit(request, pk):
     })
 
 
+@login_required
 def ti_bin_import_csv(request, hub_climate_pk):
     """Import TI bins from CSV."""
     hub_climate = get_object_or_404(HubClimate, pk=hub_climate_pk)

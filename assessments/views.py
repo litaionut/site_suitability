@@ -3,6 +3,7 @@ Views for assessments app.
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Assessment, AssessmentTurbine, CheckResult
 from .services import run_assessment_for_turbine
@@ -28,12 +29,37 @@ def assessment_report(request, pk):
     assessment = get_object_or_404(Assessment, pk=pk)
     assessment_turbines = assessment.assessment_turbines.all().prefetch_related('check_results')
     
+    # Compute speed window for each turbine
+    turbine_data = []
+    for at in assessment_turbines:
+        # Get speed window from engine output (stored in check results or compute)
+        speed_window = None
+        v_lo, v_hi = None, None
+        
+        if assessment.edition == 'ed4':
+            # Ed4: [Vave, 2*Vave]
+            v_lo = at.resolved_vave_mps
+            v_hi = at.resolved_vave_mps * 2
+        elif assessment.edition == 'ed3' and at.turbine.model:
+            # Ed3: [0.6*Vr, Vout]
+            v_lo = at.turbine.model.v_rated_mps * 0.6
+            v_hi = at.turbine.model.v_out_mps
+        
+        speed_window = {'v_lo': v_lo, 'v_hi': v_hi}
+        
+        turbine_data.append({
+            'assessment_turbine': at,
+            'speed_window': speed_window
+        })
+    
     return render(request, 'assessments/report.html', {
         'assessment': assessment,
         'assessment_turbines': assessment_turbines,
+        'turbine_data': turbine_data,
     })
 
 
+@login_required
 def run_assessment_view(request, pk):
     """Run assessment for all turbines."""
     assessment = get_object_or_404(Assessment, pk=pk)
@@ -48,6 +74,7 @@ def run_assessment_view(request, pk):
     return redirect('assessments:detail', pk=pk)
 
 
+@login_required
 def layout_assessment_setup(request, layout_pk):
     """Setup assessment for a layout."""
     layout = get_object_or_404(Layout, pk=layout_pk)
@@ -82,6 +109,9 @@ def layout_assessment_setup(request, layout_pk):
         
         # Create assessment
         with transaction.atomic():
+            # Check if class envelope was just created (Django defaults used)
+            class_envelope_used_defaults = created
+            
             assessment = Assessment.objects.create(
                 project=project,
                 site=site,
@@ -96,6 +126,7 @@ def layout_assessment_setup(request, layout_pk):
                     'iref_b': class_envelope.iref_b,
                     'iref_c': class_envelope.iref_c,
                     'vave_over_vref': class_envelope.vave_over_vref,
+                    'class_envelope_django_defaults': class_envelope_used_defaults
                 }
             )
             
