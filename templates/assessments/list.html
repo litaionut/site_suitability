@@ -1,0 +1,51 @@
+{% extends 'assessments/base.html' %}
+
+{% block title %}Assessments - Wind Site Suitability{% endblock %}
+
+{% block content %}
+<h1>Wind Site Suitability Assessments</h1>
+
+<div class="disclaimer">
+    <strong>DISCLAIMER:</strong> Screening against a user-editable class envelope, not a certified IEC 61400-1 assessment.
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Site</th>
+            <th>Project</th>
+            <th>Edition</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for assessment in assessments %}
+        <tr>
+            <td><a href="{% url 'assessments:detail' assessment.pk %}">{{ assessment.name }}</a></td>
+            <td>{{ assessment.site.name }}</td>
+            <td>{{ assessment.project.name }}</td>
+            <td>{{ assessment.get_edition_display }}</td>
+            <td>
+                {% if assessment.overall_status %}
+                    <span class="status-{{ assessment.overall_status|lower }}">{{ assessment.overall_status }}</span>
+                {% else %}
+                    <em>Not run</em>
+                {% endif %}
+            </td>
+            <td>{{ assessment.created_at|date:"Y-m-d H:i" }}</td>
+            <td>
+                <a href="{% url 'assessments:report' assessment.pk %}">Report</a> |
+                <a href="{% url 'assessments:run' assessment.pk %}">Run</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7">No assessments found. Create one in the <a href="/admin/">admin</a>.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

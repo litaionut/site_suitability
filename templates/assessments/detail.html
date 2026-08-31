@@ -1,0 +1,77 @@
+{% extends 'assessments/base.html' %}
+
+{% block title %}{{ assessment.name }} - Wind Site Suitability{% endblock %}
+
+{% block content %}
+<h1>{{ assessment.name }}</h1>
+
+<div class="disclaimer">
+    <strong>DISCLAIMER:</strong> Screening against a user-editable class envelope, not a certified IEC 61400-1 assessment.
+</div>
+
+<h2>Assessment Details</h2>
+<table>
+    <tr>
+        <th>Project</th>
+        <td>{{ assessment.project.name }}</td>
+    </tr>
+    <tr>
+        <th>Site</th>
+        <td>{{ assessment.site.name }}</td>
+    </tr>
+    <tr>
+        <th>Edition</th>
+        <td>{{ assessment.get_edition_display }}</td>
+    </tr>
+    <tr>
+        <th>Overall Status</th>
+        <td>
+            {% if assessment.overall_status %}
+                <span class="status-{{ assessment.overall_status|lower }}">{{ assessment.overall_status }}</span>
+            {% else %}
+                <em>Not run</em>
+            {% endif %}
+        </td>
+    </tr>
+    <tr>
+        <th>Created</th>
+        <td>{{ assessment.created_at|date:"Y-m-d H:i" }}</td>
+    </tr>
+    <tr>
+        <th>Updated</th>
+        <td>{{ assessment.updated_at|date:"Y-m-d H:i" }}</td>
+    </tr>
+</table>
+
+<h2>Actions</h2>
+<p>
+    <a href="{% url 'assessments:report' assessment.pk %}" style="padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">View Full Report</a>
+    <a href="{% url 'assessments:run' assessment.pk %}" style="padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-left: 10px;">Run Assessment</a>
+</p>
+
+<h2>Turbines</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Turbine</th>
+            <th>Hub Climate</th>
+            <th>Vref (m/s)</th>
+            <th>Iref</th>
+            <th>Vave (m/s)</th>
+            <th>CCT</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for at in assessment.assessment_turbines.all %}
+        <tr>
+            <td>{{ at.turbine.local_id }}</td>
+            <td>{{ at.hub_climate.name }}</td>
+            <td>{{ at.resolved_vref_mps }}</td>
+            <td>{{ at.resolved_iref }}</td>
+            <td>{{ at.resolved_vave_mps }}</td>
+            <td>{{ at.cct }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

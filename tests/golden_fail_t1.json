@@ -1,0 +1,87 @@
+{
+  "name": "GOLDEN_FAIL_T1",
+  "description": "Class IIB, ed4, Vave=8.5 m/s, V50=46, mean_sigma=0.18*V, std_sigma omitted, Fail",
+  "input": {
+    "edition": "ed4",
+    "vref": 42.5,
+    "iref": 0.14,
+    "vave": 8.5,
+    "v50": 46.0,
+    "rho": 1.225,
+    "apply_density_to_v50": false,
+    "complexity": "simple",
+    "bin_width": 1.0,
+    "period_hours": 8760,
+    "shear_alpha": 0.2,
+    "inflow_angle_deg": 3.0,
+    "wohler_exponents": [4, 10],
+    "ti_bins": [
+      {"v_center": 1.0, "hours": 187.88556, "mean_sigma": 0.18, "std_sigma": null},
+      {"v_center": 2.0, "hours": 363.735745, "mean_sigma": 0.36, "std_sigma": null},
+      {"v_center": 3.0, "hours": 516.790925, "mean_sigma": 0.54, "std_sigma": null},
+      {"v_center": 4.0, "hours": 638.654983, "mean_sigma": 0.72, "std_sigma": null},
+      {"v_center": 5.0, "hours": 724.042496, "mean_sigma": 0.9, "std_sigma": null},
+      {"v_center": 6.0, "hours": 771.095356, "mean_sigma": 1.08, "std_sigma": null},
+      {"v_center": 7.0, "hours": 781.254807, "mean_sigma": 1.26, "std_sigma": null},
+      {"v_center": 8.0, "hours": 758.747916, "mean_sigma": 1.44, "std_sigma": null},
+      {"v_center": 9.0, "hours": 709.803155, "mean_sigma": 1.62, "std_sigma": null},
+      {"v_center": 10.0, "hours": 641.738849, "mean_sigma": 1.8, "std_sigma": null},
+      {"v_center": 11.0, "hours": 562.068111, "mean_sigma": 1.98, "std_sigma": null},
+      {"v_center": 12.0, "hours": 477.738723, "mean_sigma": 2.16, "std_sigma": null},
+      {"v_center": 13.0, "hours": 394.584922, "mean_sigma": 2.34, "std_sigma": null},
+      {"v_center": 14.0, "hours": 317.021044, "mean_sigma": 2.52, "std_sigma": null},
+      {"v_center": 15.0, "hours": 247.964331, "mean_sigma": 2.7, "std_sigma": null},
+      {"v_center": 16.0, "hours": 188.942998, "mean_sigma": 2.88, "std_sigma": null},
+      {"v_center": 17.0, "hours": 140.329041, "mean_sigma": 3.06, "std_sigma": null},
+      {"v_center": 18.0, "hours": 101.632802, "mean_sigma": 3.24, "std_sigma": null},
+      {"v_center": 19.0, "hours": 71.804668, "mean_sigma": 3.42, "std_sigma": null},
+      {"v_center": 20.0, "hours": 49.504157, "mean_sigma": 3.6, "std_sigma": null},
+      {"v_center": 21.0, "hours": 33.313361, "mean_sigma": 3.78, "std_sigma": null},
+      {"v_center": 22.0, "hours": 21.886898, "mean_sigma": 3.96, "std_sigma": null},
+      {"v_center": 23.0, "hours": 14.041923, "mean_sigma": 4.14, "std_sigma": null},
+      {"v_center": 24.0, "hours": 8.798772, "mean_sigma": 4.32, "std_sigma": null},
+      {"v_center": 25.0, "hours": 5.385645, "mean_sigma": 4.5, "std_sigma": null}
+    ]
+  },
+  "expected": {
+    "overall": "Fail",
+    "cct": 1.0,
+    "speed_range": [8.5, 17.0],
+    "flags": ["assumed_cov_0_3"],
+    "checks": {
+      "extreme_wind": {
+        "status": "Fail",
+        "detail": {"V50": 46.0, "Vref": 42.5, "ratio": 1.0823529411764705}
+      },
+      "wind_distribution": {
+        "status": "Pass",
+        "detail": {"max_bin_ratio": 1.0, "n_bins_exceeded": 0}
+      },
+      "turbulence_ntm": {
+        "status": "Fail",
+        "detail": {
+          "n_bins_exceeded": 9,
+          "assumed_cov_0_3": true,
+          "R_m_4": 1.503935,
+          "R_m_10": 1.577829
+        }
+      },
+      "shear": {
+        "status": "Pass",
+        "detail": {"alpha_ew": 0.2, "limits": [0.05, 0.25]}
+      },
+      "inflow": {
+        "status": "Pass",
+        "detail": {"abs_inflow_ew_deg": 3.0}
+      },
+      "air_density": {
+        "status": "Pass",
+        "detail": {"rho": 1.225, "reason": null}
+      },
+      "complexity": {
+        "status": "Pass",
+        "detail": {"user": "simple", "cct": 1.0}
+      }
+    }
+  }
+}
